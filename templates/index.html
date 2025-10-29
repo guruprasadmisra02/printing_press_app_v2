@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<style>
+  /* === Background Styling === */
+  body {
+    background: linear-gradient(135deg, #f8f9fa 0%, #dbe8ff 50%, #fff 100%);
+    background-attachment: fixed;
+  }
+
+  /* === Card Styling === */
+  .card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  }
+
+  /* === Header === */
+  .brand-header h2 {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .brand-header p {
+    font-size: 1rem;
+    color: #555;
+  }
+
+  /* === Buttons === */
+  .btn-primary {
+    background-color: #0d6efd;
+    border: none;
+  }
+  .btn-primary:hover {
+    background-color: #0b5ed7;
+  }
+  .btn-success {
+    background-color: #198754;
+    border: none;
+  }
+  .btn-success:hover {
+    background-color: #157347;
+  }
+
+  /* === Footer === */
+  footer {
+    margin-top: 50px;
+    color: #777;
+  }
+</style>
+
+<!-- Brand Header -->
+<div class="brand-header text-center mt-4">
+  <h2 class="fw-bold text-primary">ANANTA BALIA PRINTERS & PUBLISHERS</h2>
+  <p class="text-muted mb-4">Quality Printing • Affordable Prices • 20+ Years of Excellence</p>
+</div>
+
+<!-- Login Section -->
+<div class="container mt-4 mb-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+
+      <!-- Owner / Worker Login -->
+      <div class="card mb-4">
+        <div class="card-header bg-dark text-white text-center rounded-top">
+          <h5 class="mb-0">Owner / Worker Login</h5>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('login') }}">
+            <div class="mb-3">
+              <label for="username" class="form-label">Username</label>
+              <input type="text" name="username" id="username" class="form-control" required placeholder="Enter your username">
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Password</label>
+              <input type="password" name="password" id="password" class="form-control" required placeholder="Enter your password">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Login</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Customer Login -->
+      <div class="card">
+        <div class="card-header bg-secondary text-white text-center rounded-top">
+          <h5 class="mb-0">Customer Login</h5>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('customer_login') }}">
+            <div class="mb-3">
+              <label for="phone" class="form-label">Phone Number</label>
+              <input type="text" name="phone" id="phone" class="form-control" required placeholder="Enter your phone number">
+            </div>
+            <div class="mb-3">
+              <label for="name" class="form-label">Name (optional)</label>
+              <input type="text" name="name" id="name" class="form-control" placeholder="Enter your name or company name (optional)">
+            </div>
+            <button type="submit" class="btn btn-success w-100">Continue</button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="text-center small">
+  <p>
+    © {{ current_year }} <strong>ANANTA BALIA PRINTERS & PUBLISHERS</strong> <br>
+    <a href="{{ url_for('home') }}" class="text-decoration-none text-muted">About Us</a>
+  </p>
+</footer>
+
+{% endblock %}

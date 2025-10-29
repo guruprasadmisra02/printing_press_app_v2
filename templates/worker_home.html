@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Pending / In Progress Orders</h4>
+
+<div class="table-responsive mt-3">
+  <table class="table table-bordered table-striped align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Customer</th>
+        <th>Product</th>
+        <th>Quantity</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td>{{ o.id }}</td>
+        <td>{{ o.customer_name }}</td>
+        <td>{{ o.product_name }}</td>
+        <td>{{ '%.0f'|format(o.quantity) }}</td>
+        <td>{{ o.date }}</td>
+        <td>{{ o.status }}</td>
+        <td>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('worker_orders', month=o.date[:7]) }}">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

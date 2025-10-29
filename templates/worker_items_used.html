@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<h4>Items Used for Order #{{ order.id }} ({{ order.product_name }})</h4>
+
+<form method="post">
+  <div class="table-responsive mt-3">
+    <table class="table table-bordered align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>Item</th>
+          <th>Item No</th>
+          <th>In Stock</th>
+          <th>Unit Cost</th>
+          <th>Size</th>
+          <th>Qty Used</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stock %}
+        <tr>
+          <td>{{ s.item_name }}</td>
+          <td>{{ s.item_no }}</td>
+          <td>{{ s.quantity }}</td>
+          <td>{{ s.unit_cost }}</td>
+          <td>{{ s.size }}</td>
+          <td>
+            <input type="number" step="0.01" min="0" name="qty_used_{{ s.id }}" class="form-control" placeholder="0">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-3">
+    <button class="btn btn-primary">Save Usage</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('worker_orders') }}">Back</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: printing_press_app
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    plan: free
+    disk:
+      name: dbdisk
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: DB_PATH
+        value: /opt/render/project/src/data/printing_press.db

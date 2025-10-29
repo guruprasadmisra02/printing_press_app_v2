@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ananta Balia Printers & Publishers</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    nav.navbar {
+      background: linear-gradient(90deg, #004aad, #007bff);
+    }
+    .navbar-brand {
+      font-weight: bold;
+      color: #fff !important;
+      font-size: 1.3rem;
+      letter-spacing: 0.5px;
+    }
+    .nav-link {
+      color: #fff !important;
+      font-weight: 500;
+    }
+    .nav-link.active {
+      text-decoration: underline;
+    }
+    footer {
+      background: #003366;
+      color: #ccc;
+      padding: 20px 0;
+      text-align: center;
+      margin-top: 50px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('home') }}">
+        🖨️ Ananta Balia Printers & Publishers
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+
+          <!-- Home / About Us -->
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">
+              Home / About Us
+            </a>
+          </li>
+
+          <!-- Login -->
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'login' %}active{% endif %}" href="{{ url_for('login') }}">
+              Login
+            </a>
+          </li>
+
+          {% if session.get('role') == 'owner' %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('owner_home') }}">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('owner_orders') }}">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('owner_stock') }}">Stock</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('expenses') }}">Expenses</a></li>
+
+          {% elif session.get('role') == 'worker' %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('worker_home') }}">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('worker_orders') }}">Orders</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('worker_stock') }}">Stock</a></li>
+
+          {% elif session.get('role') == 'customer' %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('customer_home') }}">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('customer_orders') }}">My Orders</a></li>
+          {% endif %}
+
+          {% if session.get('user_id') %}
+          <li class="nav-item">
+            <a class="nav-link text-warning fw-bold" href="{{ url_for('logout') }}">Logout</a>
+          </li>
+          {% endif %}
+
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash Messages -->
+  <div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Page Content -->
+  <main class="container mt-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p class="mb-0">
+      © {{ current_year }} Ananta Balia Printers & Publishers | All Rights Reserved<br>
+      Plot No. 523, Mahanadi Vihar, Cuttack – 753004 | 📞 9937043648 | 📧 pkmisctc17@gmail.com
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

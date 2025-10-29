@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Welcome, {{ session.name }}!</h3>
+<p class="text-muted">You can place new orders and check your existing ones by month.</p>
+
+<div class="d-flex gap-2 mt-3">
+  <a class="btn btn-primary" href="{{ url_for('customer_place_order') }}">Place Order</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('customer_orders') }}">My Orders</a>
+</div>
+{% endblock %}

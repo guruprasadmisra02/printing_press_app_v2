@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="fw-bold text-primary">Welcome to Ananta Balia Printers & Publishers</h1>
+    <p class="lead text-muted">
+      High-quality printing services in Cuttack with 20+ years of experience — trusted for excellence, precision, and on-time delivery.
+    </p>
+  </div>
+
+  <!-- About Section -->
+  <div class="row align-items-center mb-5">
+    <div class="col-md-6">
+      <img src="https://cdn-icons-png.flaticon.com/512/942/942748.png" alt="Printing Press"
+           class="img-fluid rounded shadow-sm">
+    </div>
+    <div class="col-md-6">
+      <h3 class="fw-semibold mb-3 text-dark">About Our Press</h3>
+      <p class="text-muted">
+        With over 20 years of experience, <strong>Ananta Balia Printers & Publishers</strong> has built a strong
+        reputation for quality, reliability, and customer satisfaction.
+      </p>
+      <p class="text-muted">
+        We specialize in <strong>book & magazine printing, visiting cards, flyers, posters, invitations, school and
+        office stationery, offset & digital printing</strong> — and all types of paper printing services.
+      </p>
+      <p class="text-muted">
+        Our mission: to provide <strong>top-notch printing at affordable prices</strong>, ensuring every client gets
+        value without compromise. With modern technology and skilled staff, we ensure every print reflects perfection.
+      </p>
+    </div>
+  </div>
+
+  <!-- Services Section -->
+  <div class="mb-5">
+    <h3 class="fw-bold text-center text-primary mb-4">Our Services</h3>
+    <div class="row text-center g-4">
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-2">📚 Book & Magazine Printing</h5>
+            <p class="text-muted">Offset and digital printing for books, journals, and magazines with premium finishing.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-2">💌 Invitation & Visiting Cards</h5>
+            <p class="text-muted">Beautiful designs for marriage, birthday, and all special event cards.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="fw-bold mb-2">🧾 Office & School Stationery</h5>
+            <p class="text-muted">Letterheads, bill books, and notebooks for businesses and schools — customized for you.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Section -->
+  <div class="bg-light rounded p-4 shadow-sm mb-4 text-center">
+    <h3 class="fw-bold text-primary mb-3">Contact Us</h3>
+    <p><strong>📍 Address:</strong> Plot No. 523, Mahanadi Vihar, Cuttack – 753004, PO – Nayabazar</p>
+    <p><strong>📞 Phone:</strong> <a href="tel:9937043648" class="text-decoration-none">9937043648</a></p>
+    <p><strong>📧 Email:</strong> <a href="mailto:pkmisctc17@gmail.com" class="text-decoration-none">pkmisctc17@gmail.com</a></p>
+    <p><strong>📌 Location:</strong> Near Jagannath Temple</p>
+  </div>
+
+  <!-- Login Section -->
+  <div class="text-center mt-5">
+    <h3 class="fw-bold text-dark mb-3">Want to Manage Orders or Place Printing Requests?</h3>
+    <p class="text-muted">Click below to log in as Owner, Worker, or Customer.</p>
+    <a href="{{ url_for('login') }}" class="btn btn-lg btn-primary px-5 py-2 shadow">
+      🔐 Login to Your Account
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}

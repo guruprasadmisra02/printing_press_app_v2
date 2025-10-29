@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center">
+  <h4>My Orders</h4>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label class="form-label m-0">Month</label>
+    <input type="month" name="month" value="{{ month }}" class="form-control">
+    <button class="btn btn-outline-primary">Go</button>
+  </form>
+</div>
+
+<div class="table-responsive mt-3">
+  <table class="table table-striped table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>ID</th>
+        <th>Product</th>
+        <th>Size</th>
+        <th>Colour</th>
+        <th>Quantity</th>
+        <th>Order Date</th>
+        <th>Total Cost</th>
+        <th>Amount Paid</th>
+        <th>Status</th>
+        <th>Receive Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td>{{ o.id }}</td>
+        <td>{{ o.product_name }}</td>
+        <td>{{ o.size }}</td>
+        <td>{{ o.colour }}</td>
+        <td>{{ '%.0f'|format(o.quantity) }}</td>
+        <td>{{ o.date }}</td>
+        <td>{{ o.total_cost or '-' }}</td>
+        <td>{{ o.amount_paid or 0 }}</td>
+        <td>{{ o.status }}</td>
+        <td>{{ o.receive_date or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

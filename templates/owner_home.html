@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}Owner Dashboard | Analytics{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
+    <h2 class="fw-bold text-primary mb-3">Owner Dashboard</h2>
+
+    <!-- Month Selector -->
+    <form method="post" class="d-flex align-items-center gap-2">
+      <label class="form-label fw-semibold mb-0 text-muted">Select Month:</label>
+      <input type="month" name="month" class="form-control" style="max-width: 180px;" value="{{ selected_month }}">
+      <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    </form>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm p-3 card-custom">
+        <h6 class="text-muted">Total Orders</h6>
+        <h3 class="fw-bold">{{ total_orders }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm p-3 card-custom">
+        <h6 class="text-muted">Total Stock Items</h6>
+        <h3 class="fw-bold">{{ total_stock }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm p-3 card-custom">
+        <h6 class="text-muted">Monthly Expenses</h6>
+        <h3 class="fw-bold text-danger">₹{{ total_expenses }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center border-0 shadow-sm p-3 card-custom">
+        <h6 class="text-muted">Total Income</h6>
+        <h3 class="fw-bold text-success">₹{{ total_income }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profit / Loss -->
+  <div class="card border-0 shadow-sm p-4 mb-4 card-custom">
+    <h5 class="text-muted mb-2"><i class="bi bi-graph-up-arrow me-2"></i>Profit / Loss ({{ selected_month }})</h5>
+    {% if profit_loss >= 0 %}
+    <h3 class="text-success fw-bold">Profit: ₹{{ profit_loss }}</h3>
+    {% else %}
+    <h3 class="text-danger fw-bold">Loss: ₹{{ profit_loss | abs }}</h3>
+    {% endif %}
+  </div>
+
+  <!-- Analytics Chart -->
+  <div class="card border-0 shadow-sm p-4 mb-4 card-custom">
+    <h5 class="text-primary fw-semibold mb-3"><i class="bi bi-bar-chart-line me-2"></i>Monthly Income vs Expenses</h5>
+    <canvas id="financeChart" height="120"></canvas>
+  </div>
+
+  <!-- Quick Access Buttons -->
+  <div class="d-flex flex-wrap gap-3">
+    <a href="{{ url_for('owner_orders') }}" class="btn btn-primary">
+      <i class="bi bi-cart-check me-2"></i> Manage Orders
+    </a>
+    <a href="{{ url_for('owner_stock') }}" class="btn btn-secondary">
+      <i class="bi bi-box-seam me-2"></i> Manage Stock
+    </a>
+    <a href="{{ url_for('expenses') }}" class="btn btn-warning text-white">
+      <i class="bi bi-cash me-2"></i> View Expenses
+    </a>
+    <a href="{{ url_for('owner_quotes') }}" class="btn btn-success text-white">
+      <i class="bi bi-chat-dots me-2"></i> Quote Requests
+    </a>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+fetch("{{ url_for('owner_dashboard_data') }}")
+  .then(response => response.json())
+  .then(data => {
+    const ctx = document.getElementById('financeChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.months,
+        datasets: [
+          {
+            label: 'Income (₹)',
+            data: data.incomes,
+            backgroundColor: 'rgba(40, 167, 69, 0.7)',
+            borderColor: 'rgba(40, 167, 69, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Expenses (₹)',
+            data: data.expenses,
+            backgroundColor: 'rgba(220, 53, 69, 0.7)',
+            borderColor: 'rgba(220, 53, 69, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Profit (₹)',
+            data: data.profits,
+            type: 'line',
+            borderColor: 'rgba(0, 123, 255, 1)',
+            backgroundColor: 'rgba(0, 123, 255, 0.2)',
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y',
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'top' },
+          title: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#333' }
+          },
+          x: { ticks: { color: '#333' } }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

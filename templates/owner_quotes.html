@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Quote Requests | Owner{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold text-primary">Customer Quote Requests</h2>
+  </div>
+
+  {% if quotes %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Product</th>
+          <th>Quantity</th>
+          <th>Message</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in quotes %}
+        <tr>
+          <td>{{ q[0] }}</td>
+          <td>{{ q[1] }}</td>
+          <td>{{ q[2] }}</td>
+          <td>{{ q[3] }}</td>
+          <td>{{ q[4] }}</td>
+          <td>{{ q[5] }}</td>
+          <td>{{ q[6] }}</td>
+          <td>{{ q[7] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted text-center mt-5">No quote requests received yet.</p>
+  {% endif %}
+</div>
+{% endblock %}
