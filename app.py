@@ -1,7 +1,8 @@
 import os, shutil
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 import sqlite3
 from datetime import datetime, date
+from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
@@ -792,28 +793,140 @@ def expenses():
     conn.close()
     return render_template('expenses.html', rows=rows)
 
-@app.route('/bill/<int:order_id>')
-def generate_bill(order_id):
-    if 'role' not in session or session['role'] not in ('owner', 'worker'):
-        flash('Unauthorized access', 'danger')
+@app.route('/bill/<order_ids>')
+def bill(order_ids):
+    # ✅ Ensure user is logged in
+    if 'role' not in session:
+        flash('Please login first', 'danger')
         return redirect(url_for('login'))
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT o.*, u.name AS user_name
-        FROM orders o
-        JOIN users u ON u.id = o.customer_id
-        WHERE o.id = ?
-    """, (order_id,))
-    order = cur.fetchone()
+    ids = [int(i) for i in order_ids.split(',') if i.strip().isdigit()]
+
+    if not ids:
+        flash('No valid order selected', 'danger')
+        conn.close()
+        return redirect(url_for('owner_orders'))
+
+    # Fetch orders
+    qmarks = ','.join(['?'] * len(ids))
+    cur.execute(f"SELECT * FROM orders WHERE id IN ({qmarks})", ids)
+    orders = cur.fetchall()
+
+    if not orders:
+        flash('No orders found', 'warning')
+        conn.close()
+        return redirect(url_for('owner_orders'))
+
+    # Fetch customer name (assuming all orders same customer)
+    cur.execute("SELECT name FROM users WHERE id=?", (orders[0]['customer_id'],))
+    user = cur.fetchone()
+    customer_name = user['name'] if user else "Customer"
+
     conn.close()
 
-    if not order:
-        flash('Order not found', 'danger')
-        return redirect(url_for('owner_orders' if session['role'] == 'owner' else 'worker_orders'))
+    # ✅ Render the bill page
+    return render_template(
+        'bill.html',
+        orders=orders,
+        customer_name=customer_name,
+        today=date.today().strftime("%d-%b-%Y"),
+        gstin="",
+        bill_id=orders[0]['id'] if orders else "",
+        order_ids=order_ids.split(',')
+    )
 
-    return render_template('bill.html', order=order)
+@app.route('/download_bill_pdf/<order_ids>')
+def download_bill_pdf(order_ids):
+    if 'role' not in session:
+        flash('Please login first', 'danger')
+        return redirect(url_for('login'))
+
+    conn = get_db()
+    cur = conn.cursor()
+    ids = [int(i) for i in order_ids.split(',') if i.strip().isdigit()]
+
+    if not ids:
+        flash('No valid orders selected', 'warning')
+        return redirect(url_for('owner_orders'))
+
+    qmarks = ','.join(['?'] * len(ids))
+    cur.execute(f"""SELECT o.*, u.name as customer_name, u.phone 
+                    FROM orders o 
+                    JOIN users u ON o.customer_id=u.id 
+                    WHERE o.id IN ({qmarks})""", ids)
+    orders = cur.fetchall()
+    conn.close()
+
+    if not orders:
+        flash('No orders found', 'warning')
+        return redirect(url_for('owner_orders'))
+
+    # Get basic info
+    customer_name = orders[0]['customer_name'] or orders[0]['phone'] or 'Unknown'
+    bill_no = str(orders[0]['id'])  # Only number (no prefix)
+    bill_date = date.today().strftime('%d-%b-%Y')
+
+    # Create PDF
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
+    pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
+    pdf.add_font("NotoSans", "I", "fonts/NotoSans-Italic.ttf", uni=True)
+
+    # Header
+    pdf.set_font("NotoSans", "B", 14)
+    pdf.cell(200, 10, txt="ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align='C')
+    pdf.set_font("NotoSans", size=10)
+    pdf.cell(200, 6, txt="Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Nayabazar", ln=True, align='C')
+    pdf.cell(200, 6, txt="Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align='C')
+    pdf.ln(8)
+
+    # Bill Info
+    pdf.set_font("NotoSans", "B", 12)
+    pdf.cell(100, 8, txt=f"BILL NO: {bill_no}", ln=0, align='L')
+    pdf.cell(90, 8, txt=f"Date: {bill_date}", ln=1, align='R')
+    pdf.set_font("NotoSans", size=11)
+    pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True, align='L')
+    pdf.ln(5)
+
+    # Table Header
+    pdf.set_font("NotoSans", "B", 10)
+    pdf.cell(10, 8, txt="#", border=1)
+    pdf.cell(70, 8, txt="Product", border=1)
+    pdf.cell(30, 8, txt="Qty", border=1)
+    pdf.cell(35, 8, txt="Unit Cost (₹)", border=1)
+    pdf.cell(45, 8, txt="Total (₹)", border=1, ln=True)
+
+    # Orders
+    total = 0
+    pdf.set_font("NotoSans", size=10)
+    for i, o in enumerate(orders, start=1):
+        qty = o['quantity'] or 0
+        cost = o['total_cost'] or 0
+        unit = cost / qty if qty else 0
+        total += cost
+        pdf.cell(10, 8, txt=str(i), border=1)
+        pdf.cell(70, 8, txt=o['product_name'], border=1)
+        pdf.cell(30, 8, txt=str(qty), border=1, align='R')
+        pdf.cell(35, 8, txt=f"{unit:.2f}", border=1, align='R')
+        pdf.cell(45, 8, txt=f"₹ {cost:.2f}", border=1, align='R', ln=True)
+
+    # Total
+    pdf.set_font("NotoSans", "B", 11)
+    pdf.cell(145, 8, txt="TOTAL AMOUNT", border=1, align='R')
+    pdf.cell(45, 8, txt=f"₹ {total:.2f}", border=1, align='R', ln=True)
+
+    # Footer
+    pdf.ln(10)
+    pdf.set_font("NotoSans", "I", 10)
+    pdf.multi_cell(0, 6, txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business and hope to serve you again.", align='C')
+
+    # Save and send
+    filepath = f"bill_{'_'.join(map(str, ids))}.pdf"
+    pdf.output(filepath)
+    return send_file(filepath, as_attachment=True)
 
 @app.route('/customer/update_name', methods=['POST'])
 def customer_update_name():
