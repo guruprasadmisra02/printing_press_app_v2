@@ -795,7 +795,6 @@ def expenses():
 
 @app.route('/bill/<order_ids>')
 def bill(order_ids):
-    # ✅ Ensure user is logged in
     if 'role' not in session:
         flash('Please login first', 'danger')
         return redirect(url_for('login'))
@@ -809,33 +808,35 @@ def bill(order_ids):
         conn.close()
         return redirect(url_for('owner_orders'))
 
-    # Fetch orders
+    # Fetch orders and related customer info
     qmarks = ','.join(['?'] * len(ids))
-    cur.execute(f"SELECT * FROM orders WHERE id IN ({qmarks})", ids)
+    cur.execute(f"""
+        SELECT o.*, u.name as customer_name, u.phone 
+        FROM orders o 
+        LEFT JOIN users u ON u.id = o.customer_id 
+        WHERE o.id IN ({qmarks})
+    """, ids)
     orders = cur.fetchall()
+    conn.close()
 
     if not orders:
         flash('No orders found', 'warning')
-        conn.close()
         return redirect(url_for('owner_orders'))
 
-    # Fetch customer name (assuming all orders same customer)
-    cur.execute("SELECT name FROM users WHERE id=?", (orders[0]['customer_id'],))
-    user = cur.fetchone()
-    customer_name = user['name'] if user else "Customer"
+    customer_name = orders[0]['customer_name'] or orders[0]['phone'] or 'Customer'
+    bill_no = str(orders[0]['id'])
+    bill_date = date.today().strftime("%d-%b-%Y")
 
-    conn.close()
-
-    # ✅ Render the bill page
     return render_template(
         'bill.html',
         orders=orders,
         customer_name=customer_name,
-        today=date.today().strftime("%d-%b-%Y"),
+        today=bill_date,
+        bill_no=bill_no,
         gstin="",
-        bill_id=orders[0]['id'] if orders else "",
-        order_ids=order_ids.split(',')
+        order_ids=order_ids
     )
+
 
 @app.route('/download_bill_pdf/<order_ids>')
 def download_bill_pdf(order_ids):
@@ -959,3 +960,4 @@ def index():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, use_reloader=False)
+
