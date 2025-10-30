@@ -1,92 +1,83 @@
 {% extends 'base.html' %}
 {% block content %}
-
-<style>
-  @media print {
-    .no-print, nav.navbar, footer { display: none !important; }
-    body { background: #fff; }
-    .container { box-shadow: none !important; border: none !important; }
-    @page { size: A4; margin: 12mm; }
-    .editable { border-bottom: 1px dashed transparent !important; }
-    .hide-when-empty[data-empty="true"] { display: none !important; }
-  }
-  .editable { padding: 2px 4px; border-bottom: 1px dashed #bbb; cursor: text; }
-  .editable:focus { outline: 2px solid rgba(13,110,253,.25); border-bottom-color: transparent; }
-  small.hint { color: #6c757d; font-size: 12px; }
-</style>
-
-<div class="container my-4 p-4 bg-white shadow rounded">
-  <div class="text-center mb-4">
-    <h2 class="text-primary fw-bold">ANANTA BALIA PRINTERS & PUBLISHERS</h2>
-    <p class="mb-1">Plot No. 523, Mahanadi Vihar, Cuttack – 753004</p>
-    <p class="mb-0">📞 9937043648 &nbsp; | &nbsp; 📧 pkmisctc17@gmail.com</p>
-    <hr>
-    <h4 class="text-secondary">Customer Bill</h4>
+<div class="container my-4 p-4 bg-white rounded shadow">
+  <div class="text-center border-bottom pb-2 mb-3">
+    <h3 class="fw-bold text-primary">Ananta Balia Printers & Publishers</h3>
+    <p class="mb-0">Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Nayabazar</p>
+    <p class="mb-0">📞 9937043648 | ✉️ pkmisctc17@gmail.com</p>
+    <p class="fst-italic">Book, Magazine, Invitation, Office & School Printing — Offset & Digital</p>
   </div>
 
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <strong>Bill No:</strong> {{ order.id }}<br>
-      <strong>Date:</strong> {{ order.date }}
+  <div class="d-flex justify-content-between mb-3">
+    <div>
+      <p><strong>Bill No:</strong> {{ bill_id or "Auto" }}</p>
+      <p><strong>Date:</strong> {{ today }}</p>
     </div>
-    <div class="col-md-6 text-md-end mt-2 mt-md-0">
-      <div><strong>Customer:</strong>
-        <span id="custName" class="editable" contenteditable="true">
-          {{ order.customer_name or order.user_name or 'Enter customer name' }}
-        </span>
-      </div>
-      <div id="gstRow" class="hide-when-empty" data-empty="true">
-        <strong>GSTIN:</strong>
-        <span id="gstin" class="editable" contenteditable="true" placeholder="Enter GSTIN"></span>
-      </div>
-      <small class="hint no-print d-block mt-1">Tip: Click name/GSTIN to edit before printing</small>
+    <div>
+      <p><strong>Customer Name:</strong> {{ customer_name or "" }}</p>
+      <p><strong>Company GSTIN:</strong> {{ gstin or "-" }}</p>
     </div>
   </div>
 
-  <table class="table table-bordered mt-3">
-    <thead class="table-primary">
+  <table class="table table-bordered text-center align-middle">
+    <thead class="table-dark">
       <tr>
+        <th>#</th>
         <th>Product Name</th>
-        <th style="width:120px">Quantity</th>
-        <th style="width:180px">Total Cost (₹)</th>
+        <th>Size</th>
+        <th>Quantity</th>
+        <th>Unit Cost (₹)</th>
+        <th>Total (₹)</th>
       </tr>
     </thead>
     <tbody>
+      {% set total_sum = 0 %}
+      {% for o in orders %}
+      {% set line_total = (o['total_cost'] or 0) %}
+      {% set total_sum = total_sum + line_total %}
       <tr>
-        <td>{{ order.product_name }}</td>
-        <td>{{ order.quantity }}</td>
-        <td>{{ order.total_cost or 0 }}</td>
+        <td>{{ loop.index }}</td>
+        <td>{{ o['product_name'] }}</td>
+        <td>{{ o['size'] or '-' }}</td>
+        <td>{{ o['quantity'] }}</td>
+        <td>{{ "%.2f"|format((o['total_cost'] or 0) / (o['quantity'] or 1)) }}</td>
+        <td>{{ "%.2f"|format(line_total) }}</td>
       </tr>
+      {% endfor %}
     </tbody>
+    <tfoot>
+      <tr class="table-light">
+        <th colspan="5" class="text-end">Total Amount</th>
+        <th>₹ {{ "%.2f"|format(total_sum) }}</th>
+      </tr>
+    </tfoot>
   </table>
 
-  <div class="text-end mt-4">
-    <h5 class="mb-0"><strong>Grand Total:</strong> ₹ {{ order.total_cost or 0 }}</h5>
+  <div class="text-center mt-4">
+    <p class="fw-semibold fst-italic text-success">
+      Thank you for choosing Ananta Balia Printers & Publishers!
+    </p>
   </div>
 
-  <div class="text-center mt-4 no-print">
-    <button class="btn btn-outline-primary me-2" onclick="handlePrint()">🖨️ Print Bill</button>
-    <a href="{{ url_for('owner_orders') if session.role == 'owner' else url_for('worker_orders') }}" class="btn btn-secondary">Back</a>
+  <div class="text-center mt-3 d-flex justify-content-center gap-3">
+    <button class="btn btn-primary" onclick="window.print()">🖨️ Print Bill</button>
+    <a href="{{ url_for('download_bill_pdf', order_ids=order_ids|join(',')) }}" class="btn btn-outline-success">📥 Download PDF</a>
   </div>
-
-  <hr class="mt-5">
-  <p class="text-center text-muted small mb-0">
-    Thank you for choosing <strong>Ananta Balia Printers & Publishers</strong>.
-  </p>
 </div>
 
-<script>
-  function refreshGstVisibility() {
-    const gst = document.getElementById('gstin');
-    const row = document.getElementById('gstRow');
-    const value = (gst.innerText || '').trim();
-    row.setAttribute('data-empty', value.length ? 'false' : 'true');
+<style>
+  @media print {
+    .btn, nav, footer {
+      display: none !important;
+    }
+    body {
+      background: white !important;
+    }
+    .container {
+      box-shadow: none !important;
+    }
   }
-  function handlePrint() { refreshGstVisibility(); window.print(); }
-  document.addEventListener('input', function(e) {
-    if (e.target && e.target.id === 'gstin') refreshGstVisibility();
-  });
-  document.addEventListener('DOMContentLoaded', refreshGstVisibility);
-</script>
-
+</style>
 {% endblock %}
+
+
