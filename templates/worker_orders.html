@@ -91,7 +91,8 @@
 
         <!-- Bill -->
         <td>
-          <a href="{{ url_for('generate_bill', order_id=o.id) }}" class="btn btn-sm btn-outline-info">Bill</a>
+          <a href="{{ url_for('download_bill_pdf', order_ids=o.id) }}" class="btn btn-sm btn-outline-info">Bill</a>
+
         </td>
 
       </tr>
@@ -100,3 +101,4 @@
   </table>
 </div>
 {% endblock %}
+
