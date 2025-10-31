@@ -661,18 +661,17 @@ def owner_quotes():
     return render_template('owner_quotes.html', quotes=quotes)
 
 
-# ------------------ Owner: Orders / Stock / Expenses ------------------
 # ------------------ OWNER: Orders ------------------
 @app.route('/owner/orders', methods=['GET', 'POST'])
 def owner_orders():
     guard = ensure_logged_in('owner')
-    if guard: 
+    if guard:
         return guard
 
     conn = get_db()
     cur = conn.cursor()
 
-    # Handle updates
+    # ---------------- Handle POST Updates ----------------
     if request.method == 'POST':
         oid = int(request.form['order_id'])
         action = request.form['action']
@@ -691,17 +690,18 @@ def owner_orders():
             cur.execute("UPDATE orders SET total_cost=? WHERE id=?", (tc, oid))
 
         elif action == 'delete_order':
-            # clean up items used (optional, keeps history tidy)
+            # Clean up related entries in order_items_used (optional but cleaner)
             cur.execute("DELETE FROM order_items_used WHERE order_id=?", (oid,))
             cur.execute("DELETE FROM orders WHERE id=?", (oid,))
 
         conn.commit()
         conn.close()
-        flash('Order updated', 'success')
+        flash('✅ Order updated successfully!', 'success')
         return redirect(url_for('owner_orders'))
 
-    # GET — list orders for selected month
+    # ---------------- GET: Display Orders ----------------
     m = month_filter()
+
     cur.execute("""
         SELECT
           o.*,
@@ -714,13 +714,31 @@ def owner_orders():
     """, (m,))
     orders = cur.fetchall()
 
-    # Stock list for inline "Items Used" picker
+    # ---------------- Stock list for “Items Used” picker ----------------
     cur.execute("SELECT id, item_name, item_no, size, quantity FROM stock ORDER BY item_name")
     stock = cur.fetchall()
 
-    conn.close()
-    return render_template('owner_orders.html', orders=orders, month=m, stock=stock)
+    # ---------------- Fetch Used Items for Each Order ----------------
+    cur.execute("""
+        SELECT oiu.order_id, s.item_name, s.size, oiu.quantity_used
+        FROM order_items_used oiu
+        JOIN stock s ON s.id = oiu.stock_item_id
+    """)
+    used_items_raw = cur.fetchall()
 
+    used = {}
+    for u in used_items_raw:
+        used.setdefault(u['order_id'], []).append(dict(u))
+
+    conn.close()
+
+    return render_template(
+        'owner_orders.html',
+        orders=orders,
+        month=m,
+        stock=stock,
+        used=used
+    )
 
 @app.route('/owner/orders/<int:order_id>/edit', methods=['GET', 'POST'])
 def owner_edit_order(order_id):
@@ -754,23 +772,62 @@ def owner_edit_order(order_id):
 @app.route('/owner/stock', methods=['GET', 'POST'])
 def owner_stock():
     guard = ensure_logged_in('owner')
-    if guard: return guard
+    if guard:
+        return guard
+
     conn = get_db()
     cur = conn.cursor()
-    if request.method == 'POST':
-        upsert_stock(conn,
-                     request.form['item_name'],
-                     request.form.get('item_no', ''),
-                     request.form.get('size', ''),
-                     float(request.form['added_quantity']),
-                     float(request.form['addition_total_cost']))
-        flash('Stock added or updated', 'success')
+
+    action = request.form.get('action', '')
+
+    # ✅ Add new stock
+    if request.method == 'POST' and action == 'add_stock':
+        upsert_stock(
+            conn,
+            request.form['item_name'],
+            request.form.get('item_no', ''),
+            request.form.get('size', ''),
+            float(request.form['added_quantity']),
+            float(request.form['addition_total_cost'])
+        )
+        flash('✅ Stock added or updated successfully', 'success')
         return redirect(url_for('owner_stock'))
+
+    # ✅ Fetch all stock and mark used ones
     cur.execute("SELECT * FROM stock ORDER BY item_name")
     rows = cur.fetchall()
-    conn.close()
-    return render_template('owner_stock.html', stock=rows)
+    stock_list = []
+    for r in rows:
+        cur.execute("SELECT COUNT(*) FROM order_items_used WHERE stock_item_id=?", (r['id'],))
+        used = cur.fetchone()[0] > 0
+        stock_list.append({**dict(r), 'used': used})
 
+    conn.close()
+    return render_template('owner_stock.html', stock=stock_list)
+
+
+@app.route('/owner/stock/<int:stock_id>/delete', methods=['POST'])
+def delete_stock(stock_id):
+    guard = ensure_logged_in('owner')
+    if guard:
+        return guard
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Check if item is used in any orders
+    cur.execute("SELECT COUNT(*) FROM order_items_used WHERE stock_item_id=?", (stock_id,))
+    used_count = cur.fetchone()[0]
+
+    if used_count > 0:
+        flash("⚠️ This stock item has been used in previous orders and cannot be deleted.", "warning")
+    else:
+        cur.execute("DELETE FROM stock WHERE id=?", (stock_id,))
+        conn.commit()
+        flash("✅ Stock item deleted successfully!", "success")
+
+    conn.close()
+    return redirect(url_for('owner_stock'))
 
 @app.route('/expenses', methods=['GET', 'POST'])
 def expenses():
@@ -960,4 +1017,3 @@ def index():
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, use_reloader=False)
-
