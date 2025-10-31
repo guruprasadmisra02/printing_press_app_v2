@@ -1,86 +1,203 @@
-{% extends 'base.html' %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>About Us | Ananta Balia Printers & Publishers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-<div class="container py-5">
-  <div class="text-center mb-5">
-    <h1 class="fw-bold text-primary">Welcome to Ananta Balia Printers & Publishers</h1>
-    <p class="lead text-muted">
-      High-quality printing services in Cuttack with 20+ years of experience — trusted for excellence, precision, and on-time delivery.
-    </p>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f8f9fb;
+      color: #333;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    /* Header Bar */
+    .top-header {
+      background: white;
+      color: #333;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      padding: 25px 0;
+      text-align: center;
+    }
+
+    .top-header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #ff6600;
+      margin-bottom: 5px;
+    }
+
+    .top-header p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #555;
+    }
+
+    /* About Section */
+    .about-container {
+      max-width: 1000px;
+      margin: 60px auto;
+      background: #fff;
+      padding: 50px;
+      border-radius: 15px;
+      box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+    }
+
+    .about-container h2 {
+      color: #0066cc;
+      text-align: center;
+      margin-bottom: 25px;
+      font-weight: 600;
+    }
+
+    .about-container p {
+      line-height: 1.8;
+      text-align: justify;
+      font-size: 1.05rem;
+    }
+
+    /* Services Section */
+    .services {
+      margin-top: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 25px;
+    }
+
+    .service-card {
+      background: #fefefe;
+      border-radius: 12px;
+      border-left: 6px solid #ff6600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 25px;
+      flex: 1 1 300px;
+      transition: all 0.3s ease;
+    }
+
+    .service-card:hover {
+      transform: scale(1.05);
+      background: linear-gradient(135deg, #ff6600, #0066cc);
+      color: white;
+    }
+
+    .service-card h4 {
+      font-weight: 600;
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+    }
+
+    .contact-section {
+      text-align: center;
+      margin-top: 50px;
+    }
+
+    .contact-section h3 {
+      color: #0066cc;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+
+    .contact-section a {
+      display: inline-block;
+      margin: 8px;
+      padding: 12px 25px;
+      background: linear-gradient(135deg, #ff6600, #ff3399);
+      color: white;
+      border-radius: 30px;
+      text-decoration: none;
+      transition: 0.3s;
+    }
+
+    .contact-section a:hover {
+      background: #ffcc00;
+      color: #000;
+    }
+
+    footer {
+      background: #222;
+      color: #eee;
+      text-align: center;
+      padding: 18px;
+      margin-top: 60px;
+    }
+
+    .btn-home {
+      background: linear-gradient(135deg, #ff6600, #ff3399);
+      color: white;
+      padding: 10px 25px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .btn-home:hover {
+      background: #0066cc;
+      color: #fff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Top Header -->
+  <div class="top-header">
+    <h1>🖨️ Ananta Balia Printers & Publishers</h1>
+    <p>Plot No. 523, Mahanadi Vihar, Cuttack - 753004 | Nayabazar, Odisha</p>
+    <p>📞 9937043648 | 📧 pkmisctc17@gmail.com</p>
   </div>
 
   <!-- About Section -->
-  <div class="row align-items-center mb-5">
-    <div class="col-md-6">
-      <img src="https://cdn-icons-png.flaticon.com/512/942/942748.png" alt="Printing Press"
-           class="img-fluid rounded shadow-sm">
-    </div>
-    <div class="col-md-6">
-      <h3 class="fw-semibold mb-3 text-dark">About Our Press</h3>
-      <p class="text-muted">
-        With over 20 years of experience, <strong>Ananta Balia Printers & Publishers</strong> has built a strong
-        reputation for quality, reliability, and customer satisfaction.
-      </p>
-      <p class="text-muted">
-        We specialize in <strong>book & magazine printing, visiting cards, flyers, posters, invitations, school and
-        office stationery, offset & digital printing</strong> — and all types of paper printing services.
-      </p>
-      <p class="text-muted">
-        Our mission: to provide <strong>top-notch printing at affordable prices</strong>, ensuring every client gets
-        value without compromise. With modern technology and skilled staff, we ensure every print reflects perfection.
-      </p>
-    </div>
-  </div>
+  <section class="about-container">
+    <h2>About Us</h2>
+    <p>
+      <b>Ananta Balia Printers & Publishers</b> is a trusted name in <b>Cuttack, Odisha</b>, known for delivering
+      premium printing and publishing solutions. With years of dedication and expertise, we bring your creative
+      ideas to life with precision and passion.
+    </p>
+    <p>
+      We specialize in crafting beautifully printed materials for individuals, schools, and businesses alike —
+      combining modern printing technology with personalized care to ensure every project exceeds expectations.
+    </p>
 
-  <!-- Services Section -->
-  <div class="mb-5">
-    <h3 class="fw-bold text-center text-primary mb-4">Our Services</h3>
-    <div class="row text-center g-4">
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
-            <h5 class="fw-bold mb-2">📚 Book & Magazine Printing</h5>
-            <p class="text-muted">Offset and digital printing for books, journals, and magazines with premium finishing.</p>
-          </div>
-        </div>
+    <div class="services">
+      <div class="service-card">
+        <h4>📚 Book & Magazine Printing</h4>
+        <p>Offset and digital printing for books, journals, and magazines with premium finishing.</p>
       </div>
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
-            <h5 class="fw-bold mb-2">💌 Invitation & Visiting Cards</h5>
-            <p class="text-muted">Beautiful designs for marriage, birthday, and all special event cards.</p>
-          </div>
-        </div>
+      <div class="service-card">
+        <h4>💌 Invitation & Visiting Cards</h4>
+        <p>Beautiful designs for marriage, birthday, and all special event cards.</p>
       </div>
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
-            <h5 class="fw-bold mb-2">🧾 Office & School Stationery</h5>
-            <p class="text-muted">Letterheads, bill books, and notebooks for businesses and schools — customized for you.</p>
-          </div>
-        </div>
+      <div class="service-card">
+        <h4>🧾 Office & School Stationery</h4>
+        <p>Letterheads, bill books, and notebooks for businesses and schools — customized for you.</p>
       </div>
     </div>
-  </div>
 
-  <!-- Contact Section -->
-  <div class="bg-light rounded p-4 shadow-sm mb-4 text-center">
-    <h3 class="fw-bold text-primary mb-3">Contact Us</h3>
-    <p><strong>📍 Address:</strong> Plot No. 523, Mahanadi Vihar, Cuttack – 753004, PO – Nayabazar</p>
-    <p><strong>📞 Phone:</strong> <a href="tel:9937043648" class="text-decoration-none">9937043648</a></p>
-    <p><strong>📧 Email:</strong> <a href="mailto:pkmisctc17@gmail.com" class="text-decoration-none">pkmisctc17@gmail.com</a></p>
-    <p><strong>📌 Location:</strong> Near Jagannath Temple</p>
-  </div>
+    <div class="contact-section">
+      <h3>Contact Us</h3>
+      <a href="tel:9937043648">📞 9937043648</a>
+      <a href="mailto:pkmisctc17@gmail.com">📧 Email Us</a>
 
-  <!-- Login Section -->
-  <div class="text-center mt-5">
-    <h3 class="fw-bold text-dark mb-3">Want to Manage Orders or Place Printing Requests?</h3>
-    <p class="text-muted">Click below to log in as Owner, Worker, or Customer.</p>
-    <a href="{{ url_for('login') }}" class="btn btn-lg btn-primary px-5 py-2 shadow">
-      🔐 Login to Your Account
-    </a>
-  </div>
+      {% if session.get('role') == 'owner' %}
+        <a href="{{ url_for('owner_home') }}" class="btn-home">📊 Go to Dashboard</a>
+      {% elif session.get('role') == 'worker' %}
+        <a href="{{ url_for('worker_home') }}" class="btn-home">📊 Go to Dashboard</a>
+      {% elif session.get('role') == 'customer' %}
+        <a href="{{ url_for('customer_home') }}" class="btn-home">📊 Go to Dashboard</a>
+      {% else %}
+        <a href="{{ url_for('login') }}" class="btn-home">🔐 Login</a>
+      {% endif %}
+    </div>
+  </section>
 
-</div>
-
-{% endblock %}
+  <footer>
+    &copy; {{ current_year }} Ananta Balia Printers & Publishers | All Rights Reserved
+  </footer>
+</body>
+</html>
