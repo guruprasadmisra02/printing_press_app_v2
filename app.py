@@ -1,27 +1,16 @@
 import os, shutil
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
-import sqlite3
 from datetime import datetime, date
 from fpdf import FPDF
+import psycopg2
+import psycopg2.extras
+import os
 
-app = Flask(__name__)
-app.secret_key = 'supersecretkey'
-DB_NAME = os.environ.get('DB_PATH', 'printing_press.db')
-# If running on Render with a disk mount, copy seed DB once
-disk_path = os.environ.get('DB_PATH')
-if disk_path and not os.path.exists(disk_path):
-    src = os.path.join(os.path.dirname(__file__), 'printing_press.db')
-    # if you committed a starter DB, copy it to disk; otherwise init_db() will create tables
-    if os.path.exists(src):
-        os.makedirs(os.path.dirname(disk_path), exist_ok=True)
-        shutil.copy2(src, disk_path)
+# Use your own database URL from Render or Neon here 👇
+DB_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@host:port/dbname")
 
-
-
-# ------------------ DB Helpers ------------------
 def get_db():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DB_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
 
 
@@ -30,115 +19,111 @@ def inject_current_year():
     return {'current_year': date.today().year}
 
 
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
+def init_db_postgres():
+    conn = get_db()
     cur = conn.cursor()
 
-    # ---------------- USERS TABLE ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        username TEXT,
-        password TEXT,
-        phone TEXT,
-        role TEXT CHECK(role IN ('owner', 'worker', 'customer'))
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            username TEXT,
+            password TEXT,
+            phone TEXT,
+            role TEXT CHECK(role IN ('owner', 'worker', 'customer'))
+        )
+    ''')
 
-    # ---------------- ORDERS TABLE ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_id INTEGER,
-        customer_name TEXT,
-        product_name TEXT,
-        size TEXT,
-        colour TEXT,
-        quantity REAL,
-        total_cost REAL,
-        amount_paid REAL DEFAULT 0,
-        date TEXT,
-        status TEXT,
-        receive_date TEXT,
-        FOREIGN KEY (customer_id) REFERENCES users(id)
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            customer_id INTEGER REFERENCES users(id),
+            customer_name TEXT,
+            product_name TEXT,
+            size TEXT,
+            colour TEXT,
+            quantity REAL,
+            total_cost REAL,
+            amount_paid REAL DEFAULT 0,
+            date TEXT,
+            status TEXT,
+            receive_date TEXT
+        )
+    ''')
 
-    # ✅ Ensure `customer_name` column exists (for backward compatibility)
-    try:
-        cur.execute("ALTER TABLE orders ADD COLUMN customer_name TEXT")
-    except sqlite3.OperationalError:
-        pass  # Column already exists — ignore error safely
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS stock (
+            id SERIAL PRIMARY KEY,
+            item_name TEXT NOT NULL,
+            item_no TEXT,
+            quantity REAL DEFAULT 0,
+            unit_cost REAL DEFAULT 0,
+            total_amount REAL DEFAULT 0,
+            size TEXT,
+            last_updated TEXT
+        )
+    ''')
 
-    # ---------------- STOCK TABLE ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS stock (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_name TEXT NOT NULL,
-        item_no TEXT,
-        quantity REAL DEFAULT 0,
-        unit_cost REAL DEFAULT 0,
-        total_amount REAL DEFAULT 0,
-        size TEXT,
-        last_updated TEXT
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS stock_additions (
+            id SERIAL PRIMARY KEY,
+            item_name TEXT,
+            item_no TEXT,
+            quantity REAL,
+            unit_cost REAL,
+            total_amount_added REAL,
+            date_added TEXT
+        )
+    ''')
 
-    # ---------------- STOCK ADDITIONS (for month-wise tracking) ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS stock_additions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        item_name TEXT,
-        item_no TEXT,
-        quantity REAL,
-        unit_cost REAL,
-        total_amount_added REAL,
-        date_added TEXT
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS order_items_used (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER REFERENCES orders(id),
+            stock_item_id INTEGER REFERENCES stock(id),
+            quantity_used REAL
+        )
+    ''')
 
-    # ---------------- ORDER ITEMS USED (stock deduction tracking) ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS order_items_used (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER,
-        stock_item_id INTEGER,
-        quantity_used REAL,
-        FOREIGN KEY (order_id) REFERENCES orders(id),
-        FOREIGN KEY (stock_item_id) REFERENCES stock(id)
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id SERIAL PRIMARY KEY,
+            expense_name TEXT,
+            amount REAL,
+            description TEXT,
+            date TEXT
+        )
+    ''')
 
-    # ---------------- EXPENSES TABLE ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS expenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        expense_name TEXT,
-        amount REAL,
-        description TEXT,
-        date TEXT
-    )''')
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS quotes (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT,
+            product TEXT NOT NULL,
+            quantity INTEGER,
+            message TEXT,
+            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    # ---------------- QUOTES TABLE (for public requests) ----------------
-    cur.execute('''CREATE TABLE IF NOT EXISTS quotes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        email TEXT,
-        product TEXT NOT NULL,
-        quantity INTEGER,
-        message TEXT,
-        date TEXT DEFAULT CURRENT_TIMESTAMP
-    )''')
-
-    conn.commit()
-
-    # ---------------- DEFAULT USERS (Optional) ----------------
-    # Add an owner and worker account if not already present
+    # Default users
     cur.execute("SELECT COUNT(*) FROM users WHERE role='owner'")
-    if cur.fetchone()[0] == 0:
-        cur.execute("INSERT INTO users (name, username, password, role) VALUES (?,?,?,?)",
+    if cur.fetchone()['count'] == 0:
+        cur.execute("INSERT INTO users (name, username, password, role) VALUES (%s,%s,%s,%s)",
                     ('Admin', 'owner', 'owner123', 'owner'))
-        print("✅ Default Owner created: username='owner', password='owner123'")
+        print("✅ Default Owner created")
 
     cur.execute("SELECT COUNT(*) FROM users WHERE role='worker'")
-    if cur.fetchone()[0] == 0:
-        cur.execute("INSERT INTO users (name, username, password, role) VALUES (?,?,?,?)",
+    if cur.fetchone()['count'] == 0:
+        cur.execute("INSERT INTO users (name, username, password, role) VALUES (%s,%s,%s,%s)",
                     ('Worker', 'worker', 'worker123', 'worker'))
-        print("✅ Default Worker created: username='worker', password='worker123'")
+        print("✅ Default Worker created")
 
     conn.commit()
     conn.close()
+
 
 # ------------------ Utility ------------------
 def ensure_logged_in(role=None):
@@ -517,69 +502,54 @@ def worker_order_items(oid):
     return render_template('worker_items_used.html', stock=stock, order=order)
 
 
-# ------------------ Owner Dashboard (month-wise) ------------------
 @app.route('/owner/home', methods=['GET', 'POST'])
 def owner_home():
-    # Auth
+    # Ensure only owner can access
     if 'role' not in session or session['role'] != 'owner':
         return redirect(url_for('login'))
 
-    # Month from form (POST) or default to current month
-    selected_month = request.form.get('month')
-    if not selected_month:
-        selected_month = datetime.now().strftime('%Y-%m')
+    # Selected month or default
+    selected_month = request.form.get('month') or datetime.now().strftime('%Y-%m')
 
     conn = sqlite3.connect(DB_NAME)
     cur = conn.cursor()
 
-    # --- Totals for widgets ---
-    # Orders in selected month
-    cur.execute("""
-        SELECT COUNT(*) FROM orders
-        WHERE strftime('%Y-%m', date) = ?
-    """, (selected_month,))
+    # --- Total Orders ---
+    cur.execute("SELECT COUNT(*) FROM orders WHERE strftime('%Y-%m', date)=?", (selected_month,))
     total_orders = cur.fetchone()[0] or 0
 
-    # Distinct stock items (live count of SKUs)
+    # --- Stock Items ---
     cur.execute("SELECT COUNT(*) FROM stock")
     total_stock = cur.fetchone()[0] or 0
 
-    # Other expenses recorded this month
-    cur.execute("""
-        SELECT IFNULL(SUM(amount), 0)
-        FROM expenses
-        WHERE strftime('%Y-%m', date) = ?
-    """, (selected_month,))
+    # --- Base Expenses ---
+    cur.execute("SELECT IFNULL(SUM(amount), 0) FROM expenses WHERE strftime('%Y-%m', date)=?", (selected_month,))
     base_expenses = cur.fetchone()[0] or 0
 
-    # ✅ Stock purchases in the selected month (from stock_additions)
-    cur.execute("""
-        SELECT IFNULL(SUM(total_amount_added), 0)
-        FROM stock_additions
-        WHERE strftime('%Y-%m', date_added) = ?
-    """, (selected_month,))
+    # --- Stock Purchases (from stock_additions) ---
+    cur.execute("SELECT IFNULL(SUM(total_amount_added), 0) FROM stock_additions WHERE strftime('%Y-%m', date_added)=?", (selected_month,))
     stock_purchases = cur.fetchone()[0] or 0
 
-    # ✅ Total expenses for the month = other expenses + stock purchases this month
+    # --- Total Expenses = Expenses + Stock Purchases ---
     total_expenses = (base_expenses or 0) + (stock_purchases or 0)
 
-    # Income = amount_paid for orders dated in this month and completed
+    # --- Total Income (from completed orders) ---
     cur.execute("""
         SELECT IFNULL(SUM(amount_paid), 0)
         FROM orders
-        WHERE strftime('%Y-%m', date) = ?
-          AND (status = 'Completed' OR status = 'completed')
+        WHERE strftime('%Y-%m', date)=?
+        AND (status='Completed' OR status='completed')
     """, (selected_month,))
     total_income = cur.fetchone()[0] or 0
 
-    # Profit/Loss
+    # --- Profit / Loss ---
     profit_loss = (total_income or 0) - (total_expenses or 0)
 
-    # (Optional KPI) Current live stock value = SUM(stock.total_amount)
+    # --- (Optional) Current Stock Value ---
     cur.execute("SELECT IFNULL(SUM(total_amount), 0) FROM stock")
     current_stock_value = cur.fetchone()[0] or 0
 
-    # Quotes count (all-time)
+    # --- Total Quotes (for display) ---
     cur.execute("SELECT COUNT(*) FROM quotes")
     total_quotes = cur.fetchone()[0] or 0
 
@@ -590,12 +560,12 @@ def owner_home():
         selected_month=selected_month,
         total_orders=total_orders,
         total_stock=total_stock,
-        base_expenses=base_expenses,          # other expenses (this month)
-        stock_purchases=stock_purchases,      # ✅ stock purchases (this month)
-        total_expenses=total_expenses,        # ✅ used in P/L
+        base_expenses=base_expenses,
+        stock_purchases=stock_purchases,
+        total_expenses=total_expenses,
         total_income=total_income,
         profit_loss=profit_loss,
-        current_stock_value=current_stock_value,  # optional KPI card
+        current_stock_value=current_stock_value,
         total_quotes=total_quotes
     )
 
@@ -1013,8 +983,6 @@ def index():
     # Login + About combo page
     return render_template('index.html')
 
-# ------------------ Run ------------------
 if __name__ == '__main__':
-    init_db()
+    init_db_postgres()
     app.run(debug=True, use_reloader=False)
-
