@@ -1,3 +1,5 @@
 Flask
 psycopg2-binary
 fpdf
+gunicorn==21.2.0
+
