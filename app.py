@@ -4,15 +4,17 @@ from datetime import datetime, date
 from fpdf import FPDF
 import psycopg2
 import psycopg2.extras
-import os
 
-# Use your own database URL from Render or Neon here 👇
+# ✅ Initialize Flask app BEFORE using @app decorators
+app = Flask(__name__)
+app.secret_key = "supersecretkey"
+
+# Use your Render PostgreSQL connection string (or local fallback)
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@host:port/dbname")
 
 def get_db():
     conn = psycopg2.connect(DB_URL, cursor_factory=psycopg2.extras.RealDictCursor)
     return conn
-
 
 @app.context_processor
 def inject_current_year():
