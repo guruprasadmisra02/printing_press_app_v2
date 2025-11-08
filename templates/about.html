@@ -1,203 +1,133 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>About Us | Ananta Balia Printers & Publishers</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% extends 'base.html' %}
+{% block content %}
 
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: #f8f9fb;
-      color: #333;
-      margin: 0;
-      overflow-x: hidden;
-    }
+<!-- ===== Hero Section with Artistic Background ===== -->
+<section style="
+  background: linear-gradient(to right, rgba(13, 27, 42, 0.9), rgba(20, 33, 61, 0.85)), 
+              url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1600&q=80');
+  background-size: cover;
+  background-position: center;
+  color: white;
+  padding: 100px 20px;
+  text-align: center;
+  position: relative;
+  border-bottom: 4px solid #fca311;
+  overflow: hidden;
+">
 
-    /* Header Bar */
-    .top-header {
-      background: white;
-      color: #333;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-      padding: 25px 0;
-      text-align: center;
-    }
+  <!-- Decorative geometric art overlay (symbolizing print sheets / CMYK layers) -->
+  <div style="
+    position: absolute;
+    inset: 0;
+    background: url('https://www.transparenttextures.com/patterns/paper-fibers.png'),
+                radial-gradient(circle at 30% 20%, rgba(252, 163, 17, 0.15) 0%, transparent 60%),
+                radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 60%);
+    background-blend-mode: overlay;
+    opacity: 0.5;
+  "></div>
 
-    .top-header h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: #ff6600;
-      margin-bottom: 5px;
-    }
+  <!-- Faint logo watermark -->
+  <div style="position: absolute; inset: 0; opacity: 0.07; background: url('https://cdn-icons-png.flaticon.com/512/2830/2830439.png') center/180px no-repeat;"></div>
 
-    .top-header p {
-      margin: 0;
-      font-size: 0.95rem;
-      color: #555;
-    }
-
-    /* About Section */
-    .about-container {
-      max-width: 1000px;
-      margin: 60px auto;
-      background: #fff;
-      padding: 50px;
-      border-radius: 15px;
-      box-shadow: 0 6px 25px rgba(0,0,0,0.08);
-    }
-
-    .about-container h2 {
-      color: #0066cc;
-      text-align: center;
-      margin-bottom: 25px;
-      font-weight: 600;
-    }
-
-    .about-container p {
-      line-height: 1.8;
-      text-align: justify;
-      font-size: 1.05rem;
-    }
-
-    /* Services Section */
-    .services {
-      margin-top: 40px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 25px;
-    }
-
-    .service-card {
-      background: #fefefe;
-      border-radius: 12px;
-      border-left: 6px solid #ff6600;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      padding: 25px;
-      flex: 1 1 300px;
-      transition: all 0.3s ease;
-    }
-
-    .service-card:hover {
-      transform: scale(1.05);
-      background: linear-gradient(135deg, #ff6600, #0066cc);
-      color: white;
-    }
-
-    .service-card h4 {
-      font-weight: 600;
-      margin-bottom: 10px;
-      font-size: 1.2rem;
-    }
-
-    .contact-section {
-      text-align: center;
-      margin-top: 50px;
-    }
-
-    .contact-section h3 {
-      color: #0066cc;
-      font-weight: 600;
-      margin-bottom: 15px;
-    }
-
-    .contact-section a {
-      display: inline-block;
-      margin: 8px;
-      padding: 12px 25px;
-      background: linear-gradient(135deg, #ff6600, #ff3399);
-      color: white;
-      border-radius: 30px;
-      text-decoration: none;
-      transition: 0.3s;
-    }
-
-    .contact-section a:hover {
-      background: #ffcc00;
-      color: #000;
-    }
-
-    footer {
-      background: #222;
-      color: #eee;
-      text-align: center;
-      padding: 18px;
-      margin-top: 60px;
-    }
-
-    .btn-home {
-      background: linear-gradient(135deg, #ff6600, #ff3399);
-      color: white;
-      padding: 10px 25px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .btn-home:hover {
-      background: #0066cc;
-      color: #fff;
-    }
-  </style>
-</head>
-
-<body>
-
-  <!-- Top Header -->
-  <div class="top-header">
-    <h1>🖨️ Ananta Balia Printers & Publishers</h1>
-    <p>Plot No. 523, Mahanadi Vihar, Cuttack - 753004 | Nayabazar, Odisha</p>
-    <p>📞 9937043648 | 📧 pkmisctc17@gmail.com</p>
+  <div style="position: relative; z-index: 2;">
+    <h1 style="font-size: 44px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
+      Ananta Balia Printers & Publishers
+    </h1>
+    <p style="font-size: 18px; color: #e0e6ed; margin-top: 10px;">
+      “Your trusted printing partner since 2005 — where quality meets commitment.”
+    </p>
   </div>
+</section>
 
-  <!-- About Section -->
-  <section class="about-container">
-    <h2>About Us</h2>
-    <p>
-      <b>Ananta Balia Printers & Publishers</b> is a trusted name in <b>Cuttack, Odisha</b>, known for delivering
-      premium printing and publishing solutions. With years of dedication and expertise, we bring your creative
-      ideas to life with precision and passion.
-    </p>
-    <p>
-      We specialize in crafting beautifully printed materials for individuals, schools, and businesses alike —
-      combining modern printing technology with personalized care to ensure every project exceeds expectations.
-    </p>
+<!-- ===== About Us Section ===== -->
+<section style="background-color: #ffffff; padding: 70px 0;">
+  <div class="container" style="max-width: 1100px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;">
+    
+    <div>
+      <h2 style="font-size: 28px; color: #14213d; margin-bottom: 10px;">About Us</h2>
+      <div style="width: 60px; height: 4px; background-color: #fca311; margin-bottom: 20px;"></div>
 
-    <div class="services">
-      <div class="service-card">
-        <h4>📚 Book & Magazine Printing</h4>
-        <p>Offset and digital printing for books, journals, and magazines with premium finishing.</p>
-      </div>
-      <div class="service-card">
-        <h4>💌 Invitation & Visiting Cards</h4>
-        <p>Beautiful designs for marriage, birthday, and all special event cards.</p>
-      </div>
-      <div class="service-card">
-        <h4>🧾 Office & School Stationery</h4>
-        <p>Letterheads, bill books, and notebooks for businesses and schools — customized for you.</p>
-      </div>
+      <p style="color: #555; line-height: 1.8;">
+        Established in <strong>2005</strong> in Cuttack, <strong>Ananta Balia Printers & Publishers</strong> has evolved from a humble local setup into one of the most trusted names in the regional printing and publishing industry.
+        We have built our reputation on three pillars: quality, reliability, and creativity.
+      </p>
+
+      <p style="color: #555; line-height: 1.8; margin-top: 15px;">
+        Our facility houses both <strong>offset</strong> and <strong>digital printing</strong> solutions, enabling us to serve individuals, institutions, and corporate clients alike.
+        Whether it’s books, stationery, or marketing materials — every print job is crafted with attention to detail, precision, and care.
+      </p>
+
+      <p style="color: #555; line-height: 1.8; margin-top: 15px;">
+        With a dedicated team and years of experience, we continue to innovate while holding true to our promise: *bringing your ideas to life through print.*
+      </p>
     </div>
 
-    <div class="contact-section">
-      <h3>Contact Us</h3>
-      <a href="tel:9937043648">📞 9937043648</a>
-      <a href="mailto:pkmisctc17@gmail.com">📧 Email Us</a>
+    <div>
+      <img src="https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?auto=format&fit=crop&w=900&q=80" 
+           alt="Printing Machines" style="width: 100%; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+    </div>
+  </div>
+</section>
 
-      {% if session.get('role') == 'owner' %}
-        <a href="{{ url_for('owner_home') }}" class="btn-home">📊 Go to Dashboard</a>
-      {% elif session.get('role') == 'worker' %}
-        <a href="{{ url_for('worker_home') }}" class="btn-home">📊 Go to Dashboard</a>
-      {% elif session.get('role') == 'customer' %}
-        <a href="{{ url_for('customer_home') }}" class="btn-home">📊 Go to Dashboard</a>
+<!-- ===== Services Section ===== -->
+<section style="background-color: #f8f9fa; padding: 60px 0;">
+  <div class="container" style="max-width: 1100px; margin: auto; text-align: center;">
+    <h2 style="font-size: 28px; color: #14213d; margin-bottom: 10px;">Our Services</h2>
+    <div style="width: 60px; height: 4px; background-color: #fca311; margin: 0 auto 40px;"></div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;">
+      
+      <div style="background: white; padding: 25px; border: 1px solid #ddd; border-top: 4px solid #fca311; border-radius: 10px;">
+        <h3 style="color: #14213d; font-size: 20px; margin-bottom: 10px;">📚 Book & Magazine Printing</h3>
+        <p style="color: #555; font-size: 15px; line-height: 1.7;">
+          Offset and digital printing for books, journals, and magazines with premium binding and finishing.
+        </p>
+      </div>
+
+      <div style="background: white; padding: 25px; border: 1px solid #ddd; border-top: 4px solid #fca311; border-radius: 10px;">
+        <h3 style="color: #14213d; font-size: 20px; margin-bottom: 10px;">💌 Invitation & Visiting Cards</h3>
+        <p style="color: #555; font-size: 15px; line-height: 1.7;">
+          Elegant and creative designs for weddings, birthdays, and corporate events — printed with care and precision.
+        </p>
+      </div>
+
+      <div style="background: white; padding: 25px; border: 1px solid #ddd; border-top: 4px solid #fca311; border-radius: 10px;">
+        <h3 style="color: #14213d; font-size: 20px; margin-bottom: 10px;">🧾 Office & School Stationery</h3>
+        <p style="color: #555; font-size: 15px; line-height: 1.7;">
+          Custom letterheads, bill books, and notebooks for schools and offices — tailored to match your brand identity.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== Contact Section ===== -->
+<section style="background-color: #ffffff; padding: 60px 0;">
+  <div class="container" style="max-width: 1000px; margin: auto; text-align: center;">
+    <h2 style="font-size: 28px; color: #14213d; margin-bottom: 10px;">Contact Us</h2>
+    <div style="width: 60px; height: 4px; background-color: #fca311; margin: 0 auto 30px;"></div>
+
+    <p style="font-size: 16px; color: #555;">📍 Plot No. 523, Mahanadi Vihar, Cuttack – 753004, Odisha</p>
+    <p style="font-size: 16px; color: #555;">📞 +91 99370 43648</p>
+    <p style="font-size: 16px; color: #555;">✉️ pkmisctc17@gmail.com</p>
+
+    <div style="margin-top: 25px;">
+      {% if 'user_id' in session %}
+        <a href="{{ url_for('owner_home') }}" style="background-color: #14213d; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Go to Dashboard</a>
       {% else %}
-        <a href="{{ url_for('login') }}" class="btn-home">🔐 Login</a>
+        <a href="{{ url_for('login') }}" style="border: 2px solid #14213d; color: #14213d; padding: 10px 20px; border-radius: 6px; text-decoration: none;">Login</a>
       {% endif %}
     </div>
-  </section>
 
-  <footer>
-    &copy; {{ current_year }} Ananta Balia Printers & Publishers | All Rights Reserved
-  </footer>
-</body>
-</html>
+    <!-- Google Map -->
+    <div style="margin-top: 40px; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+      <iframe 
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3740.897394250515!2d85.87937957473568!3d20.464545406643404!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a19092b90000001%3A0x79a0cb9b98e1b1c!2sMahanadi%20Vihar%2C%20Cuttack%2C%20Odisha%20753004!5e0!3m2!1sen!2sin!4v1709999999999!5m2!1sen!2sin"
+        width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+    </div>
+  </div>
+</section>
+
+{% endblock %}
+
