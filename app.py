@@ -1041,8 +1041,21 @@ def download_bill_pdf(order_ids):
 # ──────────────────────────────────────────────────────────────────────────────
 # Entry
 # ──────────────────────────────────────────────────────────────────────────────
+def ensure_db_initialized():
+    try:
+        print("🔧 Initializing database tables if not exist...")
+        init_db_postgres()
+        print("✅ Database initialization complete.")
+    except Exception as e:
+        print("⚠️ DB init failed:", e)
+
+# Run database init on every Render startup
+ensure_db_initialized()
+
 if __name__ == "__main__":
-    # Initialize schema + defaults on boot
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
+
     init_db_postgres()
     app.run(debug=True, use_reloader=False)
+
 
