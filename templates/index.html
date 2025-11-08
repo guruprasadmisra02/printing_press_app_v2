@@ -1,101 +1,82 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Login | Ananta Balia Printers & Publishers</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% extends 'base.html' %}
+{% block content %}
 
-  <style>
-    body {
-      background: linear-gradient(120deg, rgba(255,102,0,0.1), rgba(0,102,204,0.15));
-      font-family: 'Poppins', sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
+<!-- ===== Hero Background Section ===== -->
+<section style="
+  background: linear-gradient(to right, rgba(13, 27, 42, 0.9), rgba(20, 33, 61, 0.85)),
+              url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1600&q=80');
+  background-size: cover;
+  background-position: center;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+">
 
-    .login-card {
-      background: #fff;
-      border-radius: 15px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      text-align: center;
-      animation: fadeIn 0.8s ease;
-    }
+  <!-- Artistic overlay -->
+  <div style="
+    position: absolute;
+    inset: 0;
+    background: url('https://www.transparenttextures.com/patterns/paper-fibers.png'),
+                radial-gradient(circle at 30% 20%, rgba(252,163,17,0.2) 0%, transparent 60%),
+                radial-gradient(circle at 80% 70%, rgba(255,255,255,0.1) 0%, transparent 60%);
+    background-blend-mode: overlay;
+    opacity: 0.5;
+  "></div>
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-15px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+  <!-- Faint Logo Watermark -->
+  <div style="position: absolute; inset: 0; opacity: 0.06; background: url('https://cdn-icons-png.flaticon.com/512/2830/2830439.png') center/200px no-repeat;"></div>
 
-    .login-card h2 {
-      color: #0066cc;
-      font-weight: 700;
-      margin-bottom: 25px;
-    }
+  <!-- Login Card -->
+  <div style="
+    position: relative;
+    z-index: 2;
+    background-color: rgba(255,255,255,0.95);
+    padding: 40px 45px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+  ">
+    <h2 style="font-size: 28px; color: #14213d; margin-bottom: 10px; font-weight: 700;">Welcome Back</h2>
+    <p style="color: #6c757d; font-size: 15px; margin-bottom: 25px;">Login to continue managing your printing business</p>
 
-    .form-control {
-      border-radius: 8px;
-      padding: 10px 12px;
-    }
-
-    .btn-login {
-      background: linear-gradient(135deg, #ff6600, #ff3399);
-      color: white;
-      border: none;
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      font-weight: 600;
-      margin-top: 10px;
-      transition: 0.3s;
-    }
-
-    .btn-login:hover {
-      background: #0066cc;
-    }
-
-    .footer-text {
-      font-size: 0.9rem;
-      color: #777;
-      margin-top: 15px;
-    }
-
-    .brand-name {
-      font-size: 1.1rem;
-      color: #ff6600;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="login-card">
-    <h2>Login</h2>
-    <p class="brand-name">Ananta Balia Printers & Publishers</p>
-
+    <!-- Owner / Worker Login -->
     <form method="POST" action="{{ url_for('login') }}">
-      <input type="text" class="form-control mb-3" name="username" placeholder="Username" required>
-      <input type="password" class="form-control mb-3" name="password" placeholder="Password" required>
-      <button class="btn-login">Login</button>
+      <input type="text" name="username" placeholder="Username" required
+             style="width: 100%; padding: 10px 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-size: 15px;">
+      <input type="password" name="password" placeholder="Password" required
+             style="width: 100%; padding: 10px 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-size: 15px;">
+      <button type="submit"
+              style="background-color: #14213d; color: white; border: none; padding: 10px 20px; border-radius: 6px; width: 100%; font-size: 16px; font-weight: 600;">
+        Login
+      </button>
     </form>
 
-    <hr class="my-4">
+    <hr style="margin: 25px 0; border-top: 1px solid #ccc;">
 
+    <!-- Customer Login -->
+    <h5 style="font-size: 16px; color: #14213d; margin-bottom: 10px;">Customer Login</h5>
     <form method="POST" action="{{ url_for('customer_login') }}">
-      <input type="text" class="form-control mb-3" name="phone" placeholder="Customer Phone" required>
-      <input type="text" class="form-control mb-3" name="name" placeholder="Your Name (optional)">
-      <button class="btn-login">Customer Login</button>
+      <input type="text" name="phone" placeholder="Enter Phone Number" required
+             style="width: 100%; padding: 10px 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; font-size: 15px;">
+      <input type="text" name="name" placeholder="Enter Name (optional)"
+             style="width: 100%; padding: 10px 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-size: 15px;">
+      <button type="submit"
+              style="border: 2px solid #fca311; background: white; color: #fca311; padding: 10px 20px; border-radius: 6px; width: 100%; font-weight: 600;">
+        Customer Login
+      </button>
     </form>
 
-    <div class="footer-text mt-3">
-      <a href="{{ url_for('home') }}" class="text-decoration-none text-primary">Visit About Us Page</a>
+    <div style="margin-top: 20px;">
+      <a href="{{ url_for('home') }}" style="color: #14213d; text-decoration: none; font-weight: 600;">← Back to Home</a>
     </div>
   </div>
+</section>
 
-</body>
-</html>
+{% endblock %}
+
+
