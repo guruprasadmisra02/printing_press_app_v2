@@ -1,10 +1,160 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<h3>Welcome, {{ session.name }}!</h3>
-<p class="text-muted">You can place new orders and check your existing ones by month.</p>
 
-<div class="d-flex gap-2 mt-3">
-  <a class="btn btn-primary" href="{{ url_for('customer_place_order') }}">Place Order</a>
-  <a class="btn btn-outline-secondary" href="{{ url_for('customer_orders') }}">My Orders</a>
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #0d47a1, #1976d2);
+    color: white;
+    padding: 80px 40px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: "";
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 260px;
+    height: 260px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+}
+
+.hero-section::after {
+    content: "";
+    position: absolute;
+    bottom: -30px;
+    left: -30px;
+    width: 180px;
+    height: 180px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+}
+
+.hero-title {
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.hero-sub {
+    font-size: 18px;
+    opacity: 0.9;
+    margin-top: 10px;
+}
+
+.hero-img {
+    width: 100%;
+    max-width: 420px;
+    border-radius: 16px;
+}
+
+.action-card {
+    background: white;
+    border-radius: 14px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+    transition: 0.2s;
+}
+
+.action-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.action-card i {
+    font-size: 34px;
+    color: #1976d2;
+    margin-bottom: 12px;
+}
+
+.action-title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.action-btn {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: #1976d2;
+    border-radius: 6px;
+    color: white;
+    display: inline-block;
+}
+</style>
+
+<div class="container mt-4">
+
+    <!-- HERO SECTION -->
+    <div class="hero-section row align-items-center">
+        <div class="col-md-7">
+            <h1 class="hero-title">Welcome to<br>Ananta Balia Printers</h1>
+            <p class="hero-sub">
+                Fast • Reliable • Professional Printing Services Since 2005  
+                <br>Your dashboard is here to track your orders and place new ones easily.
+            </p>
+        </div>
+
+        <div class="col-md-5 text-center">
+            <img src="/static/images/printing_hero.png" class="hero-img">
+        </div>
+    </div>
+
+    <!-- ACTION CARDS -->
+    <div class="row mt-5">
+
+        <div class="col-md-4 mb-4">
+            <div class="action-card">
+                <i class="fas fa-plus-circle"></i>
+                <div class="action-title">Place New Order</div>
+                <a href="/customer/place_order" class="action-btn">Order Now</a>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="action-card">
+                <i class="fas fa-receipt"></i>
+                <div class="action-title">My Orders</div>
+                <a href="/customer/orders" class="action-btn">View Orders</a>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="action-card">
+                <i class="fas fa-user-edit"></i>
+                <div class="action-title">Update Name / Company</div>
+                <a href="#" data-bs-toggle="modal" data-bs-target="#updateModal" class="action-btn">
+                    Update
+                </a>
+            </div>
+        </div>
+
+    </div>
+
 </div>
+
+<!-- UPDATE NAME MODAL -->
+<div class="modal fade" id="updateModal">
+    <div class="modal-dialog">
+        <form class="modal-content" method="POST" action="/customer/update_name">
+            <div class="modal-header">
+                <h5 class="modal-title">Update Customer Name</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <label class="form-label">New Name / Company Name</label>
+                <input required name="name" class="form-control" value="{{ session['name'] }}">
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
