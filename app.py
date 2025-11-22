@@ -1106,114 +1106,122 @@ def bill(order_ids):
 
 @app.route("/download_bill_pdf/<order_ids>")
 def download_bill_pdf(order_ids):
+    from fpdf import FPDF
+    import os
 
     if "role" not in session:
         flash("Please login first", "danger")
         return redirect(url_for("login"))
 
-    try:
-        ids = [int(i) for i in order_ids.split(",") if i.strip().isdigit()]
-        if not ids:
-            flash("No valid orders selected", "warning")
-            return redirect(url_for("owner_orders"))
-
-        conn = get_db()
-        cur = conn.cursor()
-
-        # Detect Database Type Automatically
-        conn_type = conn.__class__.__name__.lower()  # sqlite or connection
-        placeholder = "?" if "sqlite" in conn_type else "%s"
-
-        query = f"""
-            SELECT o.id, o.product_name, o.quantity, o.total_cost,
-                   u.name AS customer_name, u.phone
-            FROM orders o
-            LEFT JOIN users u ON o.customer_id = u.id
-            WHERE o.id IN ({','.join([placeholder] * len(ids))})
-        """
-
-        cur.execute(query, ids)
-        orders = cur.fetchall()
-        conn.close()
-
-        if not orders:
-            flash("No orders found", "warning")
-            return redirect(url_for("owner_orders"))
-
-        # Customer Info
-        first = orders[0]
-        customer_name = first["customer_name"] or "Unknown Customer"
-        customer_phone = first["phone"] or "Not Provided"
-
-        # PDF Generation
-        from fpdf import FPDF
-        pdf = FPDF()
-        pdf.add_page()
-
-        # Unicode fonts
-        pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
-        pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
-
-        # Header
-        pdf.set_font("NotoSans", "B", 14)
-        pdf.cell(0, 10, "ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
-
-        pdf.set_font("NotoSans", "", 10)
-        pdf.cell(0, 6, "Plot No. 523, Mahanadi Vihar, Cuttack - 753004", ln=True, align="C")
-        pdf.cell(0, 6, "Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
-        pdf.ln(5)
-
-        # Customer Info
-        pdf.set_font("NotoSans", "B", 12)
-        pdf.cell(0, 8, f"Customer: {customer_name}", ln=True)
-        pdf.set_font("NotoSans", "", 11)
-        pdf.cell(0, 6, f"Phone: {customer_phone}", ln=True)
-        pdf.ln(5)
-
-        # Table Header
-        pdf.set_font("NotoSans", "B", 11)
-        pdf.cell(10, 8, "No", 1)
-        pdf.cell(80, 8, "Product", 1)
-        pdf.cell(25, 8, "Qty", 1)
-        pdf.cell(35, 8, "Rate (₹)", 1)
-        pdf.cell(40, 8, "Total (₹)", 1, ln=True)
-
-        # Table Body
-        pdf.set_font("NotoSans", "", 10)
-        grand_total = 0
-
-        for i, o in enumerate(orders, start=1):
-            qty = float(o["quantity"])
-            total_cost = float(o["total_cost"] or 0)
-            unit_price = round(total_cost / qty, 2) if qty > 0 else 0
-
-            grand_total += total_cost
-
-            pdf.cell(10, 8, str(i), 1)
-            pdf.cell(80, 8, o["product_name"], 1)
-            pdf.cell(25, 8, str(qty), 1, align="R")
-            pdf.cell(35, 8, f"₹ {unit_price:.2f}", 1, align="R")
-            pdf.cell(40, 8, f"₹ {total_cost:.2f}", 1, align="R", ln=True)
-
-        # Total Section
-        pdf.set_font("NotoSans", "B", 11)
-        pdf.cell(150, 8, "TOTAL AMOUNT", 1)
-        pdf.cell(40, 8, f"₹ {grand_total:.2f}", 1, ln=True, align="R")
-
-        # Footer Message
-        pdf.ln(10)
-        pdf.set_font("NotoSans", "", 10)
-        pdf.multi_cell(0, 6, "Thank you for choosing Ananta Balia Printers!", align="C")
-
-        filename = f"bill_{'_'.join(map(str, ids))}.pdf"
-        pdf.output(filename)
-
-        return send_file(filename, as_attachment=True)
-
-    except Exception as e:
-        print("PDF ERROR:", e)
-        flash(f"Error generating bill: {str(e)}", "danger")
+    # Convert "6,7,9" → [6,7,9]
+    ids = [int(i.strip()) for i in order_ids.split(",") if i.strip().isdigit()]
+    if not ids:
+        flash("No valid orders selected", "warning")
         return redirect(url_for("owner_orders"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Detect DB Type (SQLite uses "?" placeholders, PostgreSQL uses "%s")
+    is_sqlite = conn.__class__.__module__.startswith("sqlite3")
+
+    placeholders = ",".join(["?" if is_sqlite else "%s"] * len(ids))
+
+    query = f"""
+        SELECT o.*, u.name AS customer_name, u.phone
+        FROM orders o
+        LEFT JOIN users u ON o.customer_id = u.id
+        WHERE o.id IN ({placeholders})
+    """
+
+    cur.execute(query, ids)
+    orders = cur.fetchall()
+    conn.close()
+
+    if not orders:
+        flash("No matching orders found.", "warning")
+        return redirect(url_for("owner_orders"))
+
+    order = orders[0]
+
+    # Get dynamic customer name or phone
+    customer_name = (
+        order["customer_name"]
+        or order["customer_display"]
+        or order["phone"]
+        or "Unknown Customer"
+    )
+
+    bill_no = str(order["id"])
+    bill_date = date.today().strftime("%d-%b-%Y")
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    # Enable Unicode Fonts
+    font_folder = os.path.join(os.getcwd(), "fonts")
+    regular_font = os.path.join(font_folder, "NotoSans-Regular.ttf")
+    bold_font = os.path.join(font_folder, "NotoSans-Bold.ttf")
+
+    pdf.add_font("NotoSans", "", regular_font, uni=True)
+    pdf.add_font("NotoSans", "B", bold_font, uni=True)
+    pdf.set_font("NotoSans", "B", 14)
+
+    # Header
+    pdf.cell(200, 10, "ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
+    pdf.set_font("NotoSans", "", 10)
+    pdf.cell(200, 6, "Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Nayabazar", ln=True, align="C")
+    pdf.cell(200, 6, "Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
+    pdf.ln(8)
+
+    # Bill Info
+    pdf.set_font("NotoSans", "B", 12)
+    pdf.cell(100, 8, f"BILL NO: {bill_no}", ln=0)
+    pdf.cell(90, 8, f"Date: {bill_date}", ln=1, align="R")
+
+    pdf.set_font("NotoSans", "", 11)
+    pdf.cell(200, 8, f"Customer: {customer_name}", ln=True)
+
+    pdf.ln(5)
+
+    # Table Header
+    pdf.set_font("NotoSans", "B", 10)
+    pdf.cell(10, 8, "#", 1)
+    pdf.cell(70, 8, "Product", 1)
+    pdf.cell(30, 8, "Qty", 1)
+    pdf.cell(35, 8, "Unit Price (₹)", 1)
+    pdf.cell(45, 8, "Total (₹)", 1, ln=True)
+
+    pdf.set_font("NotoSans", "", 10)
+
+    grand_total = 0.0
+
+    for i, o in enumerate(orders, start=1):
+        qty = float(o["quantity"] or 0)
+        total_cost = float(o["total_cost"] or 0)
+        unit_price = total_cost / qty if qty else 0
+        grand_total += total_cost
+
+        pdf.cell(10, 8, str(i), 1)
+        pdf.cell(70, 8, o["product_name"] or "", 1)
+        pdf.cell(30, 8, f"{qty}", 1, align="R")
+        pdf.cell(35, 8, f"{unit_price:.2f}", 1, align="R")
+        pdf.cell(45, 8, f"₹{total_cost:.2f}", 1, ln=True, align="R")
+
+    # Grand total row
+    pdf.set_font("NotoSans", "B", 11)
+    pdf.cell(145, 8, "TOTAL AMOUNT", 1, align="R")
+    pdf.cell(45, 8, f"₹{grand_total:.2f}", 1, ln=True, align="R")
+
+    pdf.ln(10)
+    pdf.set_font("NotoSans", "", 10)
+    pdf.multi_cell(0, 6, "Thank you for choosing us!\nWe appreciate your business.", align="C")
+
+    # Save PDF (Supports Render)
+    filename = f"/tmp/bill_{'_'.join(map(str, ids))}.pdf"
+    pdf.output(filename)
+
+    return send_file(filename, as_attachment=True)
 
 
 # ────────────────────────────────────────────────────────────────
@@ -1222,6 +1230,7 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
