@@ -1141,7 +1141,7 @@ def download_bill_pdf(order_ids):
         return redirect(url_for("owner_orders"))
 
     first = orders[0]
-    customer_name = (first["customer_name"] or first["customer_phone"] or "Unknown")
+    customer_name = (first["customer_name"] or "Unknown")
     bill_no = str(first["id"])
     bill_date = date.today().strftime("%d-%b-%Y")
 
@@ -1219,6 +1219,7 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
