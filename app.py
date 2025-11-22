@@ -1,47 +1,47 @@
 import os
+import sqlite3
 from datetime import datetime, date
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
-import psycopg2
-import psycopg2.extras
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, flash, session, jsonify, send_file
+)
 from fpdf import FPDF
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Flask
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# Flask app (LOCAL ONLY, SQLite)
+# ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Database (PostgreSQL / Render)
-# ──────────────────────────────────────────────────────────────────────────────
-DB_URL = os.environ.get("DATABASE_URL")
-if not DB_URL:
-    # Fail fast on Render if not set, because SQLite is not desired publicly
-    raise RuntimeError("Error: DATABASE_URL is not set")
+# SQLite file in the same folder as this app.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "printing_press.db")
 
-# Force SSL in Render/Neon if not provided
-if "sslmode" not in DB_URL:
-    DB_URL = DB_URL + ("&sslmode=require" if "?" in DB_URL else "?sslmode=require")
 
+# ────────────────────────────────────────────────────────────────
+# DB helpers
+# ────────────────────────────────────────────────────────────────
 def get_db():
-    """Open a new DB connection (caller must close)."""
-    return psycopg2.connect(DB_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    """Open a new SQLite connection with Row factory."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 @app.context_processor
 def inject_current_year():
     return {"current_year": date.today().year}
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Schema & Seed
-# ──────────────────────────────────────────────────────────────────────────────
-def init_db_postgres():
+
+def init_db_sqlite():
+    """Create tables if they don't exist + seed default users."""
     conn = get_db()
     cur = conn.cursor()
 
-    # users
+    # USERS
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT,
             username TEXT,
             password TEXT,
@@ -50,11 +50,11 @@ def init_db_postgres():
         )
     """)
 
-    # orders (date kept as TEXT 'YYYY-MM-DD' to match your current data model)
+    # ORDERS
     cur.execute("""
         CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES users(id),
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
             customer_name TEXT,
             product_name TEXT,
             size TEXT,
@@ -64,14 +64,15 @@ def init_db_postgres():
             amount_paid REAL DEFAULT 0,
             date TEXT,
             status TEXT,
-            receive_date TEXT
+            receive_date TEXT,
+            FOREIGN KEY (customer_id) REFERENCES users(id)
         )
     """)
 
-    # stock
+    # STOCK
     cur.execute("""
         CREATE TABLE IF NOT EXISTS stock (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_name TEXT NOT NULL,
             item_no TEXT,
             quantity REAL DEFAULT 0,
@@ -82,10 +83,10 @@ def init_db_postgres():
         )
     """)
 
-    # stock_additions (for monthly expense of stock purchases)
+    # STOCK ADDITIONS
     cur.execute("""
         CREATE TABLE IF NOT EXISTS stock_additions (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             item_name TEXT,
             item_no TEXT,
             quantity REAL,
@@ -95,20 +96,22 @@ def init_db_postgres():
         )
     """)
 
-    # order_items_used (deductions)
+    # ORDER ITEMS USED
     cur.execute("""
         CREATE TABLE IF NOT EXISTS order_items_used (
-            id SERIAL PRIMARY KEY,
-            order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-            stock_item_id INTEGER REFERENCES stock(id),
-            quantity_used REAL
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            stock_item_id INTEGER,
+            quantity_used REAL,
+            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
+            FOREIGN KEY(stock_item_id) REFERENCES stock(id)
         )
     """)
 
-    # expenses (other expenses)
+    # EXPENSES
     cur.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             expense_name TEXT,
             amount REAL,
             description TEXT,
@@ -116,41 +119,45 @@ def init_db_postgres():
         )
     """)
 
-    # quotes (public requests)
+    # QUOTES
     cur.execute("""
         CREATE TABLE IF NOT EXISTS quotes (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             phone TEXT NOT NULL,
             email TEXT,
             product TEXT NOT NULL,
             quantity INTEGER,
             message TEXT,
-            date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            date TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # Seed default users if missing
-    cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='owner'")
-    if cur.fetchone()["c"] == 0:
+    # Seed default owner
+    cur.execute("SELECT COUNT(*) FROM users WHERE role='owner'")
+    if cur.fetchone()[0] == 0:
         cur.execute(
-            "INSERT INTO users (name, username, password, role) VALUES (%s,%s,%s,%s)",
+            "INSERT INTO users (name, username, password, role) VALUES (?,?,?,?)",
             ("Admin", "owner", "owner123", "owner")
         )
+        print("✅ Default owner created: owner / owner123")
 
-    cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='worker'")
-    if cur.fetchone()["c"] == 0:
+    # Seed default worker
+    cur.execute("SELECT COUNT(*) FROM users WHERE role='worker'")
+    if cur.fetchone()[0] == 0:
         cur.execute(
-            "INSERT INTO users (name, username, password, role) VALUES (%s,%s,%s,%s)",
+            "INSERT INTO users (name, username, password, role) VALUES (?,?,?,?)",
             ("Worker", "worker", "worker123", "worker")
         )
+        print("✅ Default worker created: worker / worker123")
 
     conn.commit()
     conn.close()
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 def ensure_logged_in(role=None):
     if "user_id" not in session:
         return redirect(url_for("login"))
@@ -159,14 +166,16 @@ def ensure_logged_in(role=None):
         return redirect(url_for("login"))
     return None
 
+
 def month_filter():
     m = request.args.get("month")
     if not m:
         m = date.today().strftime("%Y-%m")
     return m
 
+
 def upsert_stock(conn, item_name, item_no, size, added_qty, addition_total_cost):
-    """Insert or update stock; log purchase in stock_additions."""
+    """Insert or update stock; also log in stock_additions."""
     cur = conn.cursor()
     item_no = (item_no or "").strip()
     size = (size or "").strip()
@@ -175,10 +184,10 @@ def upsert_stock(conn, item_name, item_no, size, added_qty, addition_total_cost)
     today = date.today().isoformat()
 
     if item_no:
-        cur.execute("SELECT * FROM stock WHERE item_no = %s", (item_no,))
+        cur.execute("SELECT * FROM stock WHERE item_no = ?", (item_no,))
     else:
         cur.execute(
-            "SELECT * FROM stock WHERE item_name = %s AND COALESCE(size,'') = %s",
+            "SELECT * FROM stock WHERE item_name = ? AND IFNULL(size,'') = ?",
             (item_name, size)
         )
     row = cur.fetchone()
@@ -191,30 +200,36 @@ def upsert_stock(conn, item_name, item_no, size, added_qty, addition_total_cost)
         new_total = new_qty * new_unit
         cur.execute(
             """UPDATE stock
-               SET quantity=%s, unit_cost=%s, total_amount=%s, last_updated=%s
-             WHERE id=%s""",
+               SET quantity=?, unit_cost=?, total_amount=?, last_updated=?
+             WHERE id=?""",
             (new_qty, new_unit, new_total, today, row["id"])
         )
     else:
         unit_cost = add_cost / add_qty if add_qty > 0 else 0.0
         total_amount = add_qty * unit_cost
         cur.execute(
-            """INSERT INTO stock (item_name, item_no, quantity, unit_cost, size, total_amount, last_updated)
-               VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+            """INSERT INTO stock
+               (item_name, item_no, quantity, unit_cost, size, total_amount, last_updated)
+               VALUES (?,?,?,?,?,?,?)""",
             (item_name, item_no, add_qty, unit_cost, size, total_amount, today)
         )
 
-    # Log purchase
+    # log purchase
     cur.execute(
-        """INSERT INTO stock_additions (item_name, item_no, quantity, unit_cost, total_amount_added, date_added)
-           VALUES (%s,%s,%s,%s,%s,%s)""",
+        """INSERT INTO stock_additions
+           (item_name, item_no, quantity, unit_cost, total_amount_added, date_added)
+           VALUES (?,?,?,?,?,?)""",
         (
-            item_name, item_no, add_qty,
+            item_name,
+            item_no,
+            add_qty,
             (add_cost / add_qty) if add_qty > 0 else 0.0,
-            add_cost, today
+            add_cost,
+            today,
         )
     )
     conn.commit()
+
 
 def add_item_usage(conn, order_id, stock_id, qty_used):
     """Deduct stock and record usage."""
@@ -223,7 +238,7 @@ def add_item_usage(conn, order_id, stock_id, qty_used):
         return "Quantity must be > 0"
 
     cur = conn.cursor()
-    cur.execute("SELECT id, quantity, unit_cost FROM stock WHERE id=%s", (stock_id,))
+    cur.execute("SELECT id, quantity, unit_cost FROM stock WHERE id=?", (stock_id,))
     s = cur.fetchone()
     if not s:
         return "Stock item not found"
@@ -233,33 +248,37 @@ def add_item_usage(conn, order_id, stock_id, qty_used):
     today = date.today().isoformat()
     cur.execute(
         """UPDATE stock
-              SET quantity = quantity - %s,
-                  total_amount = (quantity - %s) * unit_cost,
-                  last_updated = %s
-            WHERE id=%s""",
+             SET quantity = quantity - ?,
+                 total_amount = (quantity - ?) * unit_cost,
+                 last_updated = ?
+           WHERE id=?""",
         (qty_used, qty_used, today, stock_id)
     )
     cur.execute(
-        "INSERT INTO order_items_used (order_id, stock_item_id, quantity_used) VALUES (%s,%s,%s)",
+        "INSERT INTO order_items_used (order_id, stock_item_id, quantity_used) VALUES (?,?,?)",
         (order_id, stock_id, qty_used)
     )
     conn.commit()
     return None
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Public pages
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/")
 def home():
+    # About page as public landing
     return render_template("about.html")
+
 
 @app.route("/index")
 def index():
     return render_template("index.html")
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Auth
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -269,7 +288,7 @@ def login():
         conn = get_db()
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM users WHERE username=%s AND password=%s",
+            "SELECT * FROM users WHERE username=? AND password=?",
             (username, password)
         )
         user = cur.fetchone()
@@ -290,6 +309,7 @@ def login():
 
     return render_template("index.html")
 
+
 @app.route("/customer_login", methods=["POST"])
 def customer_login():
     phone = (request.form.get("phone") or "").strip()
@@ -300,15 +320,17 @@ def customer_login():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE phone=%s AND role='customer'", (phone,))
+    cur.execute("SELECT * FROM users WHERE phone=? AND role='customer'", (phone,))
     user = cur.fetchone()
     if not user:
         cur.execute(
-            "INSERT INTO users (name, phone, role) VALUES (%s,%s,%s) RETURNING *",
+            "INSERT INTO users (name, phone, role) VALUES (?,?,?)",
             (name, phone, "customer")
         )
-        user = cur.fetchone()
         conn.commit()
+        cur.execute("SELECT * FROM users WHERE phone=? AND role='customer'", (phone,))
+        user = cur.fetchone()
+
     conn.close()
 
     session["user_id"] = user["id"]
@@ -316,19 +338,75 @@ def customer_login():
     session["name"] = user["name"]
     return redirect(url_for("customer_home"))
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Customer
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/customer/home")
 def customer_home():
     guard = ensure_logged_in("customer")
-    if guard: return guard
-    return render_template("customer_home.html")
+    if guard:
+        return guard
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # last 5 recent orders
+    cur.execute(
+        """SELECT * FROM orders
+           WHERE customer_id=?
+           ORDER BY id DESC
+           LIMIT 5""",
+        (session["user_id"],)
+    )
+    recent_orders = cur.fetchall()
+
+    # counts by status
+    cur.execute(
+        "SELECT COUNT(*) FROM orders WHERE customer_id=? AND status='Pending'",
+        (session["user_id"],)
+    )
+    pending_count = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT COUNT(*) FROM orders WHERE customer_id=? AND status='In Progress'",
+        (session["user_id"],)
+    )
+    inprogress_count = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT COUNT(*) FROM orders WHERE customer_id=? AND status='Completed'",
+        (session["user_id"],)
+    )
+    completed_count = cur.fetchone()[0]
+
+    # total unpaid (for non-completed or where total_cost > amount_paid)
+    cur.execute(
+        """SELECT IFNULL(SUM(
+               IFNULL(total_cost,0) - IFNULL(amount_paid,0)
+           ), 0)
+           FROM orders
+          WHERE customer_id=?""",
+        (session["user_id"],)
+    )
+    unpaid_total = cur.fetchone()[0] or 0
+
+    conn.close()
+
+    return render_template(
+        "customer_home.html",
+        recent_orders=recent_orders,
+        pending_count=pending_count,
+        inprogress_count=inprogress_count,
+        completed_count=completed_count,
+        unpaid_total=unpaid_total,
+    )
 
 @app.route("/customer/place_order", methods=["GET", "POST"])
 def customer_place_order():
@@ -338,10 +416,11 @@ def customer_place_order():
     if request.method == "POST":
         conn = get_db()
         cur = conn.cursor()
+
         cur.execute(
             """INSERT INTO orders
-               (customer_id, product_name, size, colour, quantity, date, status, customer_name)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+               (customer_id, product_name, size, colour, quantity, date, status)
+               VALUES (?,?,?,?,?,?,?)""",
             (
                 session["user_id"],
                 request.form["product_name"],
@@ -349,13 +428,13 @@ def customer_place_order():
                 request.form.get("colour"),
                 float(request.form["quantity"]),
                 date.today().isoformat(),
-                "Pending",
-                session.get("name", "Unknown")
+                "Pending"
             )
         )
+
         conn.commit()
         conn.close()
-        flash("Order placed!", "success")
+        flash("Order placed successfully!", "success")
         return redirect(url_for("customer_orders"))
 
     return render_template("customer_place_order.html", today=date.today().isoformat())
@@ -363,14 +442,15 @@ def customer_place_order():
 @app.route("/customer/orders")
 def customer_orders():
     guard = ensure_logged_in("customer")
-    if guard: return guard
+    if guard:
+        return guard
 
     m = month_filter()
     conn = get_db()
     cur = conn.cursor()
     cur.execute(
         """SELECT * FROM orders
-           WHERE customer_id=%s AND SUBSTRING(date,1,7)=%s
+           WHERE customer_id=? AND substr(date,1,7)=?
            ORDER BY id DESC""",
         (session["user_id"], m)
     )
@@ -378,10 +458,12 @@ def customer_orders():
     conn.close()
     return render_template("customer_orders.html", orders=rows, month=m)
 
+
 @app.route("/customer/update_name", methods=["POST"])
 def customer_update_name():
     guard = ensure_logged_in("customer")
-    if guard: return guard
+    if guard:
+        return guard
 
     new_name = (request.form.get("name") or "").strip()
     if not new_name:
@@ -390,16 +472,17 @@ def customer_update_name():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("UPDATE users SET name=%s WHERE id=%s", (new_name, session["user_id"]))
+    cur.execute("UPDATE users SET name=? WHERE id=?", (new_name, session["user_id"]))
     conn.commit()
     conn.close()
     session["name"] = new_name
     flash("Name/company updated successfully!", "success")
     return redirect(url_for("customer_home"))
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Public: Request a Quote
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/request_quote", methods=["POST"])
 def request_quote():
     name = request.form["name"]
@@ -413,7 +496,7 @@ def request_quote():
     cur = conn.cursor()
     cur.execute(
         """INSERT INTO quotes (name, phone, email, product, quantity, message)
-           VALUES (%s,%s,%s,%s,%s,%s)""",
+           VALUES (?,?,?,?,?,?)""",
         (name, phone, email, product, quantity, message)
     )
     conn.commit()
@@ -422,9 +505,10 @@ def request_quote():
     flash("Your quote request has been submitted successfully!", "success")
     return redirect(url_for("home"))
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Shared: Add Order Item Usage
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# Shared: Add Items Used Inline
+# ────────────────────────────────────────────────────────────────
 @app.route("/orders/<int:order_id>/items/add", methods=["POST"])
 def add_order_item(order_id):
     if "role" not in session or session["role"] not in ("worker", "owner"):
@@ -448,6 +532,7 @@ def add_order_item(order_id):
 # ──────────────────────────────────────────────────────────────────────────────
 # Worker
 # ──────────────────────────────────────────────────────────────────────────────
+
 @app.route("/worker/home")
 def worker_home():
     guard = ensure_logged_in("worker")
@@ -469,11 +554,13 @@ def worker_home():
 @app.route("/worker/orders", methods=["GET", "POST"])
 def worker_orders():
     guard = ensure_logged_in("worker")
-    if guard: return guard
+    if guard: 
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
 
+    # Update status or paid amount
     if request.method == "POST":
         oid = int(request.form["order_id"])
         act = request.form["action"]
@@ -481,11 +568,11 @@ def worker_orders():
         if act == "update_status":
             s = request.form["status"]
             rd = date.today().isoformat() if s == "Completed" else None
-            cur.execute("UPDATE orders SET status=%s, receive_date=%s WHERE id=%s", (s, rd, oid))
+            cur.execute("UPDATE orders SET status=?, receive_date=? WHERE id=?", (s, rd, oid))
 
         elif act == "update_paid":
             p = float(request.form.get("amount_paid") or 0)
-            cur.execute("UPDATE orders SET amount_paid=COALESCE(amount_paid,0)+%s WHERE id=%s", (p, oid))
+            cur.execute("UPDATE orders SET amount_paid = COALESCE(amount_paid,0) + ? WHERE id=?", (p, oid))
 
         conn.commit()
         conn.close()
@@ -493,14 +580,16 @@ def worker_orders():
         return redirect(url_for("worker_orders"))
 
     m = month_filter()
+
+    # Pull real-time updated name + phone from users table
     cur.execute(
-        """SELECT o.*,
-                  COALESCE(o.customer_name, u.name, u.phone, 'Unknown') AS customer_display,
+        """SELECT o.*, 
+                  COALESCE(u.name, u.phone, 'Unknown') AS customer_display,
                   u.phone AS customer_phone
-             FROM orders o
-        LEFT JOIN users u ON u.id=o.customer_id
-            WHERE SUBSTRING(o.date,1,7)=%s
-         ORDER BY o.id DESC""",
+           FROM orders o
+           LEFT JOIN users u ON u.id = o.customer_id
+           WHERE strftime('%Y-%m', o.date) = ?
+           ORDER BY o.id DESC""",
         (m,)
     )
     orders = cur.fetchall()
@@ -508,8 +597,21 @@ def worker_orders():
     cur.execute("SELECT id, item_name, item_no, size, quantity FROM stock ORDER BY item_name")
     stock = cur.fetchall()
 
+    cur.execute(
+        """SELECT oiu.order_id, s.item_name, s.size, oiu.quantity_used
+           FROM order_items_used oiu
+           JOIN stock s ON s.id = oiu.stock_item_id"""
+    )
+    used_items_raw = cur.fetchall()
+
+    used = {}
+    for u in used_items_raw:
+        used.setdefault(u["order_id"], []).append(dict(u))
+
     conn.close()
-    return render_template("worker_orders.html", orders=orders, stock=stock, month=m)
+
+    return render_template("worker_orders.html", orders=orders, stock=stock, used=used, month=m)
+
 
 @app.route("/worker/stock", methods=["GET", "POST"], endpoint="worker_stock")
 def worker_stock():
@@ -536,6 +638,8 @@ def worker_stock():
     conn.close()
     return render_template("worker_stock.html", stock=rows)
 
+
+
 @app.route("/worker/orders/<int:oid>/items", methods=["GET", "POST"])
 def worker_order_items(oid):
     guard = ensure_logged_in("worker")
@@ -551,71 +655,104 @@ def worker_order_items(oid):
             qty_used_val = request.form.get(f"qty_used_{sid}")
             if not qty_used_val:
                 continue
+
             qty_used = float(qty_used_val)
             if qty_used <= 0:
                 continue
 
             today = date.today().isoformat()
+
+            # Deduct stock
             cur.execute(
                 """UPDATE stock
-                     SET quantity = quantity - %s,
-                         total_amount = (quantity - %s) * unit_cost,
-                         last_updated = %s
-                   WHERE id = %s""",
+                     SET quantity = quantity - ?,
+                         total_amount = (quantity - ?) * unit_cost,
+                         last_updated = ?
+                   WHERE id = ?""",
                 (qty_used, qty_used, today, sid)
             )
+
+            # Record usage
             cur.execute(
-                "INSERT INTO order_items_used (order_id, stock_item_id, quantity_used) VALUES (%s,%s,%s)",
+                "INSERT INTO order_items_used (order_id, stock_item_id, quantity_used) VALUES (?,?,?)",
                 (oid, sid, qty_used)
             )
+
         conn.commit()
         conn.close()
         flash("Items usage saved and stock updated", "success")
         return redirect(url_for("worker_orders"))
 
+    # GET (item selection page)
     cur.execute("SELECT * FROM stock ORDER BY item_name")
     stock = cur.fetchall()
-    cur.execute("SELECT * FROM orders WHERE id=%s", (oid,))
+
+    cur.execute("SELECT * FROM orders WHERE id=?", (oid,))
     order = cur.fetchone()
+
     conn.close()
     return render_template("worker_items_used.html", stock=stock, order=order)
 
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 # Owner Dashboard
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/owner/home", methods=["GET", "POST"])
 def owner_home():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
-    selected_month = request.form.get("month") or datetime.now().strftime("%Y-%m")
+    # Fix: month selection works both GET & POST
+    if request.method == "POST":
+        selected_month = request.form.get("month") or datetime.now().strftime("%Y-%m")
+    else:
+        selected_month = request.args.get("month") or datetime.now().strftime("%Y-%m")
 
     conn = get_db()
     cur = conn.cursor()
 
-    # total orders
-    cur.execute("SELECT COUNT(*) AS c FROM orders WHERE SUBSTRING(date,1,7)=%s", (selected_month,))
+    # -----------------------------
+    # TOTAL ORDERS
+    # -----------------------------
+    cur.execute(
+        "SELECT COUNT(*) AS c FROM orders WHERE substr(date,1,7)=?",
+        (selected_month,)
+    )
     total_orders = cur.fetchone()["c"] or 0
 
-    # stock items count
+    # -----------------------------
+    # STOCK ITEMS COUNT
+    # -----------------------------
     cur.execute("SELECT COUNT(*) AS c FROM stock")
     total_stock = cur.fetchone()["c"] or 0
 
-    # base expenses
-    cur.execute("SELECT COALESCE(SUM(amount),0) AS s FROM expenses WHERE SUBSTRING(date,1,7)=%s", (selected_month,))
+    # -----------------------------
+    # BASE EXPENSES
+    # -----------------------------
+    cur.execute(
+        "SELECT COALESCE(SUM(amount),0) AS s FROM expenses WHERE substr(date,1,7)=?",
+        (selected_month,)
+    )
     base_expenses = cur.fetchone()["s"] or 0
 
-    # stock purchases (this month)
-    cur.execute("SELECT COALESCE(SUM(total_amount_added),0) AS s FROM stock_additions WHERE SUBSTRING(date_added,1,7)=%s", (selected_month,))
+    # -----------------------------
+    # STOCK PURCHASES
+    # -----------------------------
+    cur.execute(
+        "SELECT COALESCE(SUM(total_amount_added),0) AS s FROM stock_additions WHERE substr(date_added,1,7)=?",
+        (selected_month,)
+    )
     stock_purchases = cur.fetchone()["s"] or 0
 
     total_expenses = (base_expenses or 0) + (stock_purchases or 0)
 
-    # income (amount_paid for orders in that month & completed)
+    # -----------------------------
+    # INCOME (Completed Orders)
+    # -----------------------------
     cur.execute(
         """SELECT COALESCE(SUM(amount_paid),0) AS s
              FROM orders
-            WHERE SUBSTRING(date,1,7)=%s
+            WHERE substr(date,1,7)=?
               AND (status='Completed' OR status='completed')""",
         (selected_month,)
     )
@@ -623,11 +760,15 @@ def owner_home():
 
     profit_loss = (total_income or 0) - (total_expenses or 0)
 
-    # live stock value
+    # -----------------------------
+    # CURRENT STOCK VALUE
+    # -----------------------------
     cur.execute("SELECT COALESCE(SUM(total_amount),0) AS s FROM stock")
     current_stock_value = cur.fetchone()["s"] or 0
 
-    # quotes count
+    # -----------------------------
+    # QUOTES COUNT
+    # -----------------------------
     cur.execute("SELECT COUNT(*) AS c FROM quotes")
     total_quotes = cur.fetchone()["c"] or 0
 
@@ -647,17 +788,20 @@ def owner_home():
         total_quotes=total_quotes
     )
 
+
 @app.route("/owner/dashboard_data")
 def owner_dashboard_data():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
 
-    # last 6 months income from completed orders
+    # income (last 6 months)
     cur.execute(
-        """SELECT SUBSTRING(date,1,7) AS month, COALESCE(SUM(amount_paid),0) AS income
+        """SELECT strftime('%Y-%m', date) AS month,
+                  IFNULL(SUM(amount_paid),0) AS income
              FROM orders
             WHERE status='Completed'
          GROUP BY month
@@ -666,9 +810,10 @@ def owner_dashboard_data():
     )
     income_data = cur.fetchall()
 
-    # last 6 months expenses (only expenses table; stock purchases are tracked separately in UI)
+    # expenses (last 6 months)
     cur.execute(
-        """SELECT SUBSTRING(date,1,7) AS month, COALESCE(SUM(amount),0) AS expenses
+        """SELECT strftime('%Y-%m', date) AS month,
+                  IFNULL(SUM(amount),0) AS expenses
              FROM expenses
          GROUP BY month
          ORDER BY month DESC
@@ -692,10 +837,12 @@ def owner_dashboard_data():
 
     return jsonify({"months": months, "incomes": incomes, "expenses": expenses, "profits": profits})
 
+
 @app.route("/owner/quotes")
 def owner_quotes():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
@@ -704,17 +851,20 @@ def owner_quotes():
     conn.close()
     return render_template("owner_quotes.html", quotes=quotes)
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Owner: Orders
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/owner/orders", methods=["GET", "POST"])
 def owner_orders():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard: 
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
 
+    # POST actions
     if request.method == "POST":
         oid = int(request.form["order_id"])
         action = request.form["action"]
@@ -722,35 +872,36 @@ def owner_orders():
         if action == "update_status":
             status = request.form["status"]
             rd = date.today().isoformat() if status == "Completed" else None
-            cur.execute("UPDATE orders SET status=%s, receive_date=%s WHERE id=%s", (status, rd, oid))
+            cur.execute("UPDATE orders SET status=?, receive_date=? WHERE id=?", (status, rd, oid))
 
         elif action == "update_paid":
             amt = float(request.form.get("amount_paid") or 0)
-            cur.execute("UPDATE orders SET amount_paid=COALESCE(amount_paid,0)+%s WHERE id=%s", (amt, oid))
+            cur.execute("UPDATE orders SET amount_paid = COALESCE(amount_paid,0) + ? WHERE id=?", (amt, oid))
 
         elif action == "update_total_cost":
             tc = float(request.form.get("total_cost") or 0)
-            cur.execute("UPDATE orders SET total_cost=%s WHERE id=%s", (tc, oid))
+            cur.execute("UPDATE orders SET total_cost=? WHERE id=?", (tc, oid))
 
         elif action == "delete_order":
-            cur.execute("DELETE FROM order_items_used WHERE order_id=%s", (oid,))
-            cur.execute("DELETE FROM orders WHERE id=%s", (oid,))
+            cur.execute("DELETE FROM order_items_used WHERE order_id=?", (oid,))
+            cur.execute("DELETE FROM orders WHERE id=?", (oid,))
 
         conn.commit()
         conn.close()
-        flash("✅ Order updated successfully!", "success")
+        flash("Order updated successfully!", "success")
         return redirect(url_for("owner_orders"))
 
     m = month_filter()
 
+    # Query updated dynamic customer name + phone
     cur.execute(
         """SELECT o.*,
-                  COALESCE(o.customer_name, u.name, u.phone, 'Unknown') AS customer_display,
+                  COALESCE(u.name, u.phone, 'Unknown') AS customer_display,
                   u.phone AS customer_phone
-             FROM orders o
-        LEFT JOIN users u ON u.id = o.customer_id
-            WHERE SUBSTRING(o.date,1,7)=%s
-         ORDER BY o.id DESC""",
+           FROM orders o
+           LEFT JOIN users u ON u.id = o.customer_id
+           WHERE strftime('%Y-%m', o.date) = ?
+           ORDER BY o.id DESC""",
         (m,)
     )
     orders = cur.fetchall()
@@ -760,30 +911,34 @@ def owner_orders():
 
     cur.execute(
         """SELECT oiu.order_id, s.item_name, s.size, oiu.quantity_used
-             FROM order_items_used oiu
-             JOIN stock s ON s.id = oiu.stock_item_id"""
+           FROM order_items_used oiu
+           JOIN stock s ON s.id = oiu.stock_item_id"""
     )
     used_items_raw = cur.fetchall()
+
     used = {}
     for u in used_items_raw:
         used.setdefault(u["order_id"], []).append(dict(u))
 
     conn.close()
+
     return render_template("owner_orders.html", orders=orders, month=m, stock=stock, used=used)
+
 
 @app.route("/owner/orders/<int:order_id>/edit", methods=["GET", "POST"])
 def owner_edit_order(order_id):
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
     if request.method == "POST":
         cur.execute(
             """UPDATE orders
-                  SET product_name=%s, size=%s, colour=%s, quantity=%s,
-                      total_cost=%s, status=%s, receive_date=%s
-                WHERE id=%s""",
+                  SET product_name=?, size=?, colour=?, quantity=?,
+                      total_cost=?, status=?, receive_date=?
+                WHERE id=?""",
             (
                 request.form["product_name"],
                 request.form.get("size"),
@@ -792,7 +947,7 @@ def owner_edit_order(order_id):
                 float(request.form.get("total_cost") or 0),
                 request.form["status"],
                 request.form.get("receive_date") or None,
-                order_id
+                order_id,
             )
         )
         conn.commit()
@@ -800,18 +955,20 @@ def owner_edit_order(order_id):
         flash("Order updated!", "success")
         return redirect(url_for("owner_orders"))
 
-    cur.execute("SELECT * FROM orders WHERE id=%s", (order_id,))
+    cur.execute("SELECT * FROM orders WHERE id=?", (order_id,))
     order = cur.fetchone()
     conn.close()
     return render_template("owner_edit_order.html", order=order)
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Owner: Stock
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/owner/stock", methods=["GET", "POST"])
 def owner_stock():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
@@ -834,55 +991,62 @@ def owner_stock():
     rows = cur.fetchall()
     stock_list = []
     for r in rows:
-        cur.execute("SELECT COUNT(*) AS c FROM order_items_used WHERE stock_item_id=%s", (r["id"],))
-        used = cur.fetchone()["c"] > 0
-        data = dict(r)
-        data["used"] = used
-        stock_list.append(data)
+        cur.execute(
+            "SELECT COUNT(*) FROM order_items_used WHERE stock_item_id=?",
+            (r["id"],)
+        )
+        used_flag = cur.fetchone()[0] > 0
+        d = dict(r)
+        d["used"] = used_flag
+        stock_list.append(d)
 
     conn.close()
     return render_template("owner_stock.html", stock=stock_list)
 
+
 @app.route("/owner/stock/<int:stock_id>/delete", methods=["POST"])
 def delete_stock(stock_id):
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("SELECT COUNT(*) AS c FROM order_items_used WHERE stock_item_id=%s", (stock_id,))
-    used_count = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) FROM order_items_used WHERE stock_item_id=?", (stock_id,))
+    used_count = cur.fetchone()[0]
 
     if used_count > 0:
         flash("⚠️ This stock item has been used in previous orders and cannot be deleted.", "warning")
     else:
-        cur.execute("DELETE FROM stock WHERE id=%s", (stock_id,))
+        cur.execute("DELETE FROM stock WHERE id=?", (stock_id,))
         conn.commit()
         flash("✅ Stock item deleted successfully!", "success")
 
     conn.close()
     return redirect(url_for("owner_stock"))
 
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
 # Expenses
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
 @app.route("/expenses", methods=["GET", "POST"])
 def expenses():
     guard = ensure_logged_in("owner")
-    if guard: return guard
+    if guard:
+        return guard
 
     conn = get_db()
     cur = conn.cursor()
 
     if request.method == "POST":
         cur.execute(
-            "INSERT INTO expenses (expense_name, amount, description, date) VALUES (%s,%s,%s,%s)",
+            "INSERT INTO expenses (expense_name, amount, description, date) VALUES (?,?,?,?)",
             (
                 request.form["expense_name"],
                 float(request.form["amount"]),
                 request.form.get("description", ""),
-                date.today().isoformat()
+                date.today().isoformat(),
             )
         )
         conn.commit()
@@ -894,9 +1058,10 @@ def expenses():
     conn.close()
     return render_template("expenses.html", rows=rows)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Bill (multi-order) + PDF
-# ──────────────────────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────────
+# Bill & PDF
+# ────────────────────────────────────────────────────────────────
 @app.route("/bill/<order_ids>")
 def bill(order_ids):
     if "role" not in session:
@@ -910,8 +1075,7 @@ def bill(order_ids):
 
     conn = get_db()
     cur = conn.cursor()
-
-    placeholders = ",".join(["%s"] * len(ids))
+    placeholders = ",".join(["?"] * len(ids))
     cur.execute(
         f"""SELECT o.*, u.name AS customer_name, u.phone
               FROM orders o
@@ -940,6 +1104,7 @@ def bill(order_ids):
         order_ids=order_ids
     )
 
+
 @app.route("/download_bill_pdf/<order_ids>")
 def download_bill_pdf(order_ids):
     if "role" not in session:
@@ -953,7 +1118,7 @@ def download_bill_pdf(order_ids):
 
     conn = get_db()
     cur = conn.cursor()
-    placeholders = ",".join(["%s"] * len(ids))
+    placeholders = ",".join(["?"] * len(ids))
     cur.execute(
         f"""SELECT o.*, u.name AS customer_name, u.phone
               FROM orders o
@@ -972,16 +1137,14 @@ def download_bill_pdf(order_ids):
     bill_no = str(orders[0]["id"])
     bill_date = date.today().strftime("%d-%b-%Y")
 
-    # PDF with Unicode font
     pdf = FPDF()
     pdf.add_page()
 
-    # Fonts (ensure fonts/NotoSans-*.ttf exist in repo)
+    # comment these 3 lines out if fonts folder is missing:
     pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
     pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
     pdf.add_font("NotoSans", "I", "fonts/NotoSans-Italic.ttf", uni=True)
 
-    # Header
     pdf.set_font("NotoSans", "B", 14)
     pdf.cell(200, 10, txt="ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
     pdf.set_font("NotoSans", "", 10)
@@ -989,7 +1152,6 @@ def download_bill_pdf(order_ids):
     pdf.cell(200, 6, txt="Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
     pdf.ln(8)
 
-    # Bill Info
     pdf.set_font("NotoSans", "B", 12)
     pdf.cell(100, 8, txt=f"BILL NO: {bill_no}", ln=0, align="L")
     pdf.cell(90, 8, txt=f"Date: {bill_date}", ln=1, align="R")
@@ -997,7 +1159,6 @@ def download_bill_pdf(order_ids):
     pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True, align="L")
     pdf.ln(5)
 
-    # Table Header
     pdf.set_font("NotoSans", "B", 10)
     pdf.cell(10, 8, txt="#", border=1)
     pdf.cell(70, 8, txt="Product", border=1)
@@ -1005,7 +1166,6 @@ def download_bill_pdf(order_ids):
     pdf.cell(35, 8, txt="Unit Cost (₹)", border=1)
     pdf.cell(45, 8, txt="Total (₹)", border=1, ln=True)
 
-    # Lines
     total = 0.0
     pdf.set_font("NotoSans", "", 10)
     for i, o in enumerate(orders, start=1):
@@ -1020,42 +1180,27 @@ def download_bill_pdf(order_ids):
         pdf.cell(35, 8, txt=f"{unit:.2f}", border=1, align="R")
         pdf.cell(45, 8, txt=f"₹ {cost:.2f}", border=1, align="R", ln=True)
 
-    # Total
     pdf.set_font("NotoSans", "B", 11)
     pdf.cell(145, 8, txt="TOTAL AMOUNT", border=1, align="R")
     pdf.cell(45, 8, txt=f"₹ {total:.2f}", border=1, align="R", ln=True)
 
-    # Footer
     pdf.ln(10)
     pdf.set_font("NotoSans", "I", 10)
     pdf.multi_cell(
-        0, 6,
+        0,
+        6,
         txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business and hope to serve you again.",
-        align="C"
+        align="C",
     )
 
     filename = f"bill_{'_'.join(map(str, ids))}.pdf"
     pdf.output(filename)
     return send_file(filename, as_attachment=True)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Entry
-# ──────────────────────────────────────────────────────────────────────────────
-def ensure_db_initialized():
-    try:
-        print("🔧 Initializing database tables if not exist...")
-        init_db_postgres()
-        print("✅ Database initialization complete.")
-    except Exception as e:
-        print("⚠️ DB init failed:", e)
 
-# Run database init on every Render startup
-ensure_db_initialized()
-
+# ────────────────────────────────────────────────────────────────
+# Run (LOCAL)
+# ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=True)
-
-    init_db_postgres()
-    app.run(debug=True, use_reloader=False)
-
-
+    init_db_sqlite()
+    app.run(host="0.0.0.0", port=10000, debug=True)
