@@ -1202,7 +1202,14 @@ def download_bill_pdf(order_ids):
 
     pdf.ln(5)
     pdf.set_font("Noto", "", 10)
-    pdf.multi_cell(0, 6, "Thank you for your business.")
+    pdf.ln(5)
+    pdf.set_font("Noto", "", 10)
+    pdf.multi_cell(
+        0, 6,
+        "Thank you for choosing Ananta Balia Printers & Publishers!\n"
+        "We appreciate your business and hope to serve you again.",
+        align="C"
+    )
 
     # Safe file write (works in Render)
     filename = f"/tmp/bill_{'_'.join(map(str, ids))}.pdf"
@@ -1218,6 +1225,7 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
