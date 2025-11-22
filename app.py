@@ -1106,7 +1106,6 @@ def bill(order_ids):
 
 @app.route("/download_bill_pdf/<order_ids>")
 def download_bill_pdf(order_ids):
-    global DB_URL   # <-- REQUIRED FIX
 
     if "role" not in session:
         flash("Please login first", "danger")
@@ -1121,15 +1120,16 @@ def download_bill_pdf(order_ids):
         conn = get_db()
         cur = conn.cursor()
 
-        # Detect DB type (SQLite uses ?, Postgres uses %s)
-        placeholders = ",".join(["?"] * len(ids)) if "sqlite" in DB_URL else ",".join(["%s"] * len(ids))
+        # Detect Database Type Automatically
+        conn_type = conn.__class__.__name__.lower()  # sqlite or connection
+        placeholder = "?" if "sqlite" in conn_type else "%s"
 
         query = f"""
-            SELECT o.id, o.product_name, o.quantity, o.total_cost, 
-                   u.name AS customer_name, u.phone 
+            SELECT o.id, o.product_name, o.quantity, o.total_cost,
+                   u.name AS customer_name, u.phone
             FROM orders o
             LEFT JOIN users u ON o.customer_id = u.id
-            WHERE o.id IN ({placeholders})
+            WHERE o.id IN ({','.join([placeholder] * len(ids))})
         """
 
         cur.execute(query, ids)
@@ -1140,34 +1140,37 @@ def download_bill_pdf(order_ids):
             flash("No orders found", "warning")
             return redirect(url_for("owner_orders"))
 
-        # Customer info
+        # Customer Info
         first = orders[0]
-        customer_name = first["customer_name"] if first["customer_name"] else "Unknown Customer"
-        customer_phone = first["phone"] if first["phone"] else "No Phone Available"
+        customer_name = first["customer_name"] or "Unknown Customer"
+        customer_phone = first["phone"] or "Not Provided"
 
-        # PDF GENERATION
+        # PDF Generation
         from fpdf import FPDF
         pdf = FPDF()
         pdf.add_page()
 
+        # Unicode fonts
         pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
         pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
 
+        # Header
         pdf.set_font("NotoSans", "B", 14)
         pdf.cell(0, 10, "ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
 
         pdf.set_font("NotoSans", "", 10)
-        pdf.cell(0, 6, "Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Odisha", ln=True, align="C")
+        pdf.cell(0, 6, "Plot No. 523, Mahanadi Vihar, Cuttack - 753004", ln=True, align="C")
         pdf.cell(0, 6, "Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
         pdf.ln(5)
 
+        # Customer Info
         pdf.set_font("NotoSans", "B", 12)
         pdf.cell(0, 8, f"Customer: {customer_name}", ln=True)
         pdf.set_font("NotoSans", "", 11)
         pdf.cell(0, 6, f"Phone: {customer_phone}", ln=True)
         pdf.ln(5)
 
-        # Table
+        # Table Header
         pdf.set_font("NotoSans", "B", 11)
         pdf.cell(10, 8, "No", 1)
         pdf.cell(80, 8, "Product", 1)
@@ -1175,6 +1178,7 @@ def download_bill_pdf(order_ids):
         pdf.cell(35, 8, "Rate (₹)", 1)
         pdf.cell(40, 8, "Total (₹)", 1, ln=True)
 
+        # Table Body
         pdf.set_font("NotoSans", "", 10)
         grand_total = 0
 
@@ -1191,14 +1195,15 @@ def download_bill_pdf(order_ids):
             pdf.cell(35, 8, f"₹ {unit_price:.2f}", 1, align="R")
             pdf.cell(40, 8, f"₹ {total_cost:.2f}", 1, align="R", ln=True)
 
+        # Total Section
         pdf.set_font("NotoSans", "B", 11)
         pdf.cell(150, 8, "TOTAL AMOUNT", 1)
         pdf.cell(40, 8, f"₹ {grand_total:.2f}", 1, ln=True, align="R")
 
-        # Footer
+        # Footer Message
         pdf.ln(10)
         pdf.set_font("NotoSans", "", 10)
-        pdf.multi_cell(0, 6, "🖨 Thank you for choosing Ananta Balia Printers & Publishers!", align="C")
+        pdf.multi_cell(0, 6, "Thank you for choosing Ananta Balia Printers!", align="C")
 
         filename = f"bill_{'_'.join(map(str, ids))}.pdf"
         pdf.output(filename)
@@ -1210,12 +1215,14 @@ def download_bill_pdf(order_ids):
         flash(f"Error generating bill: {str(e)}", "danger")
         return redirect(url_for("owner_orders"))
 
+
 # ────────────────────────────────────────────────────────────────
 # Run (LOCAL)
 # ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
