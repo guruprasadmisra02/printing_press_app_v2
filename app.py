@@ -1108,108 +1108,133 @@ def bill(order_ids):
 @app.route("/download_bill_pdf/<order_ids>")
 def download_bill_pdf(order_ids):
     if "role" not in session:
-        flash("Please login first", "danger")
+        flash("Please login first.", "danger")
         return redirect(url_for("login"))
 
-    # Parse IDs from URL
-    ids = [int(i) for i in order_ids.split(",") if i.strip().isdigit()]
+    # Convert "1,2,3" → [1,2,3]
+    ids = [int(x) for x in order_ids.split(",") if x.strip().isdigit()]
+
     if not ids:
-        flash("No valid orders selected", "warning")
+        flash("No valid orders selected.", "warning")
         return redirect(url_for("owner_orders"))
 
     conn = get_db()
     cur = conn.cursor()
 
+    # SQLite uses "?" placeholders
     qmarks = ",".join(["?"] * len(ids))
+
     cur.execute(
         f"""
         SELECT 
             o.*,
-            COALESCE(o.customer_name, u.name) AS customer_name,
+            COALESCE(u.name, o.customer_name) AS display_name,
+            u.name AS updated_name,
             u.phone AS customer_phone
         FROM orders o
         LEFT JOIN users u ON u.id = o.customer_id
         WHERE o.id IN ({qmarks})
+        ORDER BY o.id ASC
         """,
-        ids,
+        ids
     )
+
     orders = cur.fetchall()
     conn.close()
 
     if not orders:
-        flash("No orders found", "warning")
+        flash("No orders found.", "warning")
         return redirect(url_for("owner_orders"))
 
-    first = orders[0]
-    customer_name = (first["customer_name"] or "Unknown")
-    bill_no = str(first["id"])
-    bill_date = date.today().strftime("%d-%b-%Y")
+    first = orders[0]  # First order controls bill metadata
 
-    # Create PDF
+    # ------- Customer Name Priority --------
+    # 1️⃣ Updated user name
+    # 2️⃣ Stored order name
+    # 3️⃣ Phone number
+    # 4️⃣ "Customer"
+    customer_name = None
+
+    # Try updated name first
+    if "updated_name" in first.keys() and first["updated_name"]:
+        customer_name = first["updated_name"]
+
+    # Fall back to stored name
+    if not customer_name and "display_name" in first.keys() and first["display_name"]:
+        customer_name = first["display_name"]
+
+    # Fall back to phone
+    if not customer_name and first.get("customer_phone"):
+        customer_name = first["customer_phone"]
+
+    # Final fallback
+    if not customer_name:
+        customer_name = "Customer"
+
+    # ---------- PDF GENERATION ----------
     pdf = FPDF()
     pdf.add_page()
 
-    # Fonts (make sure these files exist in fonts/ on Render)
-    pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
-    pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
-    pdf.add_font("NotoSans", "I", "fonts/NotoSans-Italic.ttf", uni=True)
-
     # Header
-    pdf.set_font("NotoSans", "B", 14)
+    pdf.set_font("Arial", "B", 14)
     pdf.cell(200, 10, txt="ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
-    pdf.set_font("NotoSans", "", 10)
+
+    pdf.set_font("Arial", "", 10)
     pdf.cell(200, 6, txt="Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Nayabazar", ln=True, align="C")
-    pdf.cell(200, 6, txt="Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
+    pdf.cell(200, 6, txt="Phone: 9937043648  |  Email: pkmisctc17@gmail.com", ln=True, align="C")
     pdf.ln(8)
 
-    # Bill info
-    pdf.set_font("NotoSans", "B", 12)
-    pdf.cell(100, 8, txt=f"BILL NO: {bill_no}", ln=0, align="L")
-    pdf.cell(90, 8, txt=f"Date: {bill_date}", ln=1, align="R")
-    pdf.set_font("NotoSans", "", 11)
+    # Invoice Details
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(100, 8, txt=f"Bill No: {first['id']}", ln=0, align="L")
+    pdf.cell(90, 8, txt=f"Date: {date.today().strftime('%d-%b-%Y')}", ln=1, align="R")
+
+    pdf.set_font("Arial", "", 11)
     pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True, align="L")
     pdf.ln(5)
 
-    # Table header
-    pdf.set_font("NotoSans", "B", 10)
-    pdf.cell(10, 8, txt="#", border=1)
-    pdf.cell(70, 8, txt="Product", border=1)
-    pdf.cell(30, 8, txt="Qty", border=1)
-    pdf.cell(35, 8, txt="Unit Cost (₹)", border=1)
-    pdf.cell(45, 8, txt="Total (₹)", border=1, ln=True)
+    # Table Header
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(10, 8, "#", border=1)
+    pdf.cell(70, 8, "Product", border=1)
+    pdf.cell(30, 8, "Qty", border=1)
+    pdf.cell(35, 8, "Unit Cost (₹)", border=1)
+    pdf.cell(45, 8, "Total (₹)", border=1, ln=True)
 
-    # Table rows
-    pdf.set_font("NotoSans", "", 10)
-    total = 0.0
+    # Table Content
+    pdf.set_font("Arial", "", 10)
+    total_amount = 0
+
     for i, o in enumerate(orders, start=1):
-        qty = float(o["quantity"] or 0)
-        cost = float(o["total_cost"] or 0)
-        unit = cost / qty if qty else 0.0
-        total += cost
+        qty = float(o["quantity"])
+        total_cost = float(o["total_cost"] or 0)
+        unit_cost = (total_cost / qty) if qty else 0
 
-        pdf.cell(10, 8, txt=str(i), border=1)
-        pdf.cell(70, 8, txt=o["product_name"] or "", border=1)
-        pdf.cell(30, 8, txt=f"{qty:g}", border=1, align="R")
-        pdf.cell(35, 8, txt=f"{unit:.2f}", border=1, align="R")
-        pdf.cell(45, 8, txt=f"₹ {cost:.2f}", border=1, align="R", ln=True)
+        total_amount += total_cost
 
-    # Total row
-    pdf.set_font("NotoSans", "B", 11)
-    pdf.cell(145, 8, txt="TOTAL AMOUNT", border=1, align="R")
-    pdf.cell(45, 8, txt=f"₹ {total:.2f}", border=1, align="R", ln=True)
+        pdf.cell(10, 8, str(i), border=1)
+        pdf.cell(70, 8, str(o["product_name"]), border=1)
+        pdf.cell(30, 8, str(qty), border=1, align="R")
+        pdf.cell(35, 8, f"{unit_cost:.2f}", border=1, align="R")
+        pdf.cell(45, 8, f"₹ {total_cost:.2f}", border=1, align="R", ln=True)
+
+    # Total Row
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(145, 8, "TOTAL AMOUNT", border=1, align="R")
+    pdf.cell(45, 8, f"₹ {total_amount:.2f}", border=1, ln=True, align="R")
 
     # Footer
     pdf.ln(10)
-    pdf.set_font("NotoSans", "I", 10)
+    pdf.set_font("Arial", "I", 10)
     pdf.multi_cell(
-        0,
-        6,
-        txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business and hope to serve you again.",
-        align="C",
+        0, 6,
+        txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business.",
+        align="C"
     )
 
     filename = f"bill_{'_'.join(map(str, ids))}.pdf"
     pdf.output(filename)
+
     return send_file(filename, as_attachment=True)
 
 
@@ -1219,6 +1244,7 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
