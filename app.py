@@ -1118,15 +1118,17 @@ def download_bill_pdf(order_ids):
 
     conn = get_db()
     cur = conn.cursor()
+
     placeholders = ",".join(["?"] * len(ids))
     cur.execute(
-        f"""SELECT o.*, u.name AS name, u.phone
-          FROM orders o
-          LEFT JOIN users u ON o.customer_id=u.id
-         WHERE o.id IN ({placeholders})""",
-       ids
+        f"""SELECT o.*, 
+                  u.name AS name,
+                  u.phone 
+           FROM orders o
+           LEFT JOIN users u ON o.customer_id = u.id
+           WHERE o.id IN ({placeholders})""",
+        ids
     )
-
     orders = cur.fetchall()
     conn.close()
 
@@ -1134,18 +1136,26 @@ def download_bill_pdf(order_ids):
         flash("No orders found", "warning")
         return redirect(url_for("owner_orders"))
 
-    customer_name = orders[0].get("name") or orders[0].get("customer_name")  or "Unknown"
+    # Updated logic to always use latest customer name
+    customer_name = (
+        orders[0].get("name")
+        or orders[0].get("customer_name")
+        or orders[0].get("phone")
+        or "Customer"
+    )
+
     bill_no = str(orders[0]["id"])
     bill_date = date.today().strftime("%d-%b-%Y")
 
+    # PDF
     pdf = FPDF()
     pdf.add_page()
 
-    # comment these 3 lines out if fonts folder is missing:
+    # Fonts (must exist)
     pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
     pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
-    pdf.add_font("NotoSans", "I", "fonts/NotoSans-Italic.ttf", uni=True)
 
+    # Header
     pdf.set_font("NotoSans", "B", 14)
     pdf.cell(200, 10, txt="ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
     pdf.set_font("NotoSans", "", 10)
@@ -1153,22 +1163,26 @@ def download_bill_pdf(order_ids):
     pdf.cell(200, 6, txt="Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
     pdf.ln(8)
 
+    # Bill Info
     pdf.set_font("NotoSans", "B", 12)
-    pdf.cell(100, 8, txt=f"BILL NO: {bill_no}", ln=0, align="L")
-    pdf.cell(90, 8, txt=f"Date: {bill_date}", ln=1, align="R")
+    pdf.cell(100, 8, txt=f"BILL NO: {bill_no}", ln=0)
+    pdf.cell(90, 8, txt=f"Date: {bill_date}", ln=1)
     pdf.set_font("NotoSans", "", 11)
-    pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True, align="L")
+    pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True)
     pdf.ln(5)
 
+    # Table Header
     pdf.set_font("NotoSans", "B", 10)
-    pdf.cell(10, 8, txt="#", border=1)
-    pdf.cell(70, 8, txt="Product", border=1)
-    pdf.cell(30, 8, txt="Qty", border=1)
-    pdf.cell(35, 8, txt="Unit Cost (₹)", border=1)
-    pdf.cell(45, 8, txt="Total (₹)", border=1, ln=True)
+    pdf.cell(10, 8, "#", border=1)
+    pdf.cell(80, 8, "Product", border=1)
+    pdf.cell(30, 8, "Qty", border=1)
+    pdf.cell(35, 8, "Unit Cost (₹)", border=1)
+    pdf.cell(35, 8, "Total (₹)", border=1, ln=True)
 
-    total = 0.0
+    # Items
+    total = 0
     pdf.set_font("NotoSans", "", 10)
+
     for i, o in enumerate(orders, start=1):
         qty = float(o["quantity"] or 0)
         cost = float(o["total_cost"] or 0)
@@ -1176,28 +1190,19 @@ def download_bill_pdf(order_ids):
         total += cost
 
         pdf.cell(10, 8, txt=str(i), border=1)
-        pdf.cell(70, 8, txt=o["product_name"] or "", border=1)
-        pdf.cell(30, 8, txt=f"{qty:g}", border=1, align="R")
-        pdf.cell(35, 8, txt=f"{unit:.2f}", border=1, align="R")
-        pdf.cell(45, 8, txt=f"₹ {cost:.2f}", border=1, align="R", ln=True)
+        pdf.cell(80, 8, txt=o["product_name"], border=1)
+        pdf.cell(30, 8, txt=f"{qty:g}", border=1)
+        pdf.cell(35, 8, txt=f"{unit:.2f}", border=1)
+        pdf.cell(35, 8, txt=f"₹ {cost:.2f}", border=1, ln=True)
 
+    # Total Row
     pdf.set_font("NotoSans", "B", 11)
-    pdf.cell(145, 8, txt="TOTAL AMOUNT", border=1, align="R")
-    pdf.cell(45, 8, txt=f"₹ {total:.2f}", border=1, align="R", ln=True)
-
-    pdf.ln(10)
-    pdf.set_font("NotoSans", "I", 10)
-    pdf.multi_cell(
-        0,
-        6,
-        txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business and hope to serve you again.",
-        align="C",
-    )
+    pdf.cell(155, 8, txt="TOTAL", border=1)
+    pdf.cell(35, 8, txt=f"₹ {total:.2f}", border=1, ln=True)
 
     filename = f"bill_{'_'.join(map(str, ids))}.pdf"
     pdf.output(filename)
     return send_file(filename, as_attachment=True)
-
 
 # ────────────────────────────────────────────────────────────────
 # Run (LOCAL)
@@ -1205,4 +1210,5 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
