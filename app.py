@@ -1104,138 +1104,112 @@ def bill(order_ids):
         order_ids=order_ids
     )
 
-
 @app.route("/download_bill_pdf/<order_ids>")
 def download_bill_pdf(order_ids):
     if "role" not in session:
-        flash("Please login first.", "danger")
+        flash("Please login first", "danger")
         return redirect(url_for("login"))
 
-    # Convert "1,2,3" → [1,2,3]
-    ids = [int(x) for x in order_ids.split(",") if x.strip().isdigit()]
+    try:
+        # Convert order IDs string into list
+        ids = [int(i) for i in order_ids.split(",") if i.strip().isdigit()]
+        if not ids:
+            flash("No valid orders selected", "warning")
+            return redirect(url_for("owner_orders"))
 
-    if not ids:
-        flash("No valid orders selected.", "warning")
+        conn = get_db()
+        cur = conn.cursor()
+
+        placeholders = ",".join(["?"] * len(ids)) if DB_URL.startswith("sqlite") else ",".join(["%s"] * len(ids))
+        query = f"""
+            SELECT o.id, o.product_name, o.quantity, o.total_cost, 
+                   u.name AS customer_name, u.phone 
+            FROM orders o
+            LEFT JOIN users u ON o.customer_id = u.id
+            WHERE o.id IN ({placeholders})
+        """
+        cur.execute(query, ids)
+        orders = cur.fetchall()
+        conn.close()
+
+        if not orders:
+            flash("No orders found", "warning")
+            return redirect(url_for("owner_orders"))
+
+        # ---- Customer Details ----
+        first = orders[0]
+        customer_name = first["customer_name"] if first["customer_name"] else "Unknown Customer"
+        customer_phone = first["phone"] if first["phone"] else "No Phone Available"
+
+        # ---- PDF Setup ----
+        from fpdf import FPDF
+        pdf = FPDF()
+        pdf.add_page()
+
+        # Load Unicode fonts
+        pdf.add_font("NotoSans", "", "fonts/NotoSans-Regular.ttf", uni=True)
+        pdf.add_font("NotoSans", "B", "fonts/NotoSans-Bold.ttf", uni=True)
+
+        pdf.set_font("NotoSans", "B", 14)
+        pdf.cell(0, 10, "ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
+
+        pdf.set_font("NotoSans", "", 10)
+        pdf.cell(0, 6, "Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Odisha", ln=True, align="C")
+        pdf.cell(0, 6, "Phone: 9937043648 | Email: pkmisctc17@gmail.com", ln=True, align="C")
+        pdf.ln(5)
+
+        # Bill Heading
+        pdf.set_font("NotoSans", "B", 12)
+        pdf.cell(0, 8, f"Customer: {customer_name}", ln=True)
+        pdf.set_font("NotoSans", "", 11)
+        pdf.cell(0, 6, f"Phone: {customer_phone}", ln=True)
+        pdf.ln(5)
+
+        # Table Header
+        pdf.set_font("NotoSans", "B", 11)
+        pdf.cell(10, 8, "No", 1)
+        pdf.cell(80, 8, "Product", 1)
+        pdf.cell(25, 8, "Qty", 1)
+        pdf.cell(35, 8, "Rate (₹)", 1)
+        pdf.cell(40, 8, "Total (₹)", 1, ln=True)
+
+        pdf.set_font("NotoSans", "", 10)
+        grand_total = 0
+
+        # Populate rows
+        for i, o in enumerate(orders, start=1):
+            qty = float(o["quantity"])
+            total_cost = float(o["total_cost"] or 0)
+            unit_price = round(total_cost / qty, 2) if qty > 0 else 0
+
+            grand_total += total_cost
+
+            pdf.cell(10, 8, str(i), 1)
+            pdf.cell(80, 8, o["product_name"], 1)
+            pdf.cell(25, 8, str(qty), 1, align="R")
+            pdf.cell(35, 8, f"₹ {unit_price:.2f}", 1, align="R")
+            pdf.cell(40, 8, f"₹ {total_cost:.2f}", 1, align="R", ln=True)
+
+        # Total
+        pdf.set_font("NotoSans", "B", 11)
+        pdf.cell(150, 8, "TOTAL AMOUNT", 1)
+        pdf.cell(40, 8, f"₹ {grand_total:.2f}", 1, ln=True, align="R")
+
+        # Footer Message
+        pdf.ln(10)
+        pdf.set_font("NotoSans", "", 10)
+        pdf.multi_cell(0, 6, "🖨 Thank you for choosing Ananta Balia Printers & Publishers!", align="C")
+
+        filename = f"bill_{'_'.join(map(str, ids))}.pdf"
+        pdf.output(filename)
+
+        return send_file(filename, as_attachment=True)
+
+    except Exception as e:
+        print("PDF ERROR:", e)
+        flash(f"Error generating bill: {str(e)}", "danger")
         return redirect(url_for("owner_orders"))
 
-    conn = get_db()
-    cur = conn.cursor()
-
-    # SQLite uses "?" placeholders
-    qmarks = ",".join(["?"] * len(ids))
-
-    cur.execute(
-        f"""
-        SELECT 
-            o.*,
-            COALESCE(u.name, o.customer_name) AS display_name,
-            u.name AS updated_name,
-            u.phone AS customer_phone
-        FROM orders o
-        LEFT JOIN users u ON u.id = o.customer_id
-        WHERE o.id IN ({qmarks})
-        ORDER BY o.id ASC
-        """,
-        ids
-    )
-
-    orders = cur.fetchall()
-    conn.close()
-
-    if not orders:
-        flash("No orders found.", "warning")
-        return redirect(url_for("owner_orders"))
-
-    first = orders[0]  # First order controls bill metadata
-
-    # ------- Customer Name Priority --------
-    # 1️⃣ Updated user name
-    # 2️⃣ Stored order name
-    # 3️⃣ Phone number
-    # 4️⃣ "Customer"
-    customer_name = None
-
-    # Try updated name first
-    if "updated_name" in first.keys() and first["updated_name"]:
-        customer_name = first["updated_name"]
-
-    # Fall back to stored name
-    if not customer_name and "display_name" in first.keys() and first["display_name"]:
-        customer_name = first["display_name"]
-
-    # Fall back to phone
-    if not customer_name and first.get("customer_phone"):
-        customer_name = first["customer_phone"]
-
-    # Final fallback
-    if not customer_name:
-        customer_name = "Customer"
-
-    # ---------- PDF GENERATION ----------
-    pdf = FPDF()
-    pdf.add_page()
-
-    # Header
-    pdf.set_font("Arial", "B", 14)
-    pdf.cell(200, 10, txt="ANANTA BALIA PRINTERS & PUBLISHERS", ln=True, align="C")
-
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(200, 6, txt="Plot No. 523, Mahanadi Vihar, Cuttack - 753004, Nayabazar", ln=True, align="C")
-    pdf.cell(200, 6, txt="Phone: 9937043648  |  Email: pkmisctc17@gmail.com", ln=True, align="C")
-    pdf.ln(8)
-
-    # Invoice Details
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(100, 8, txt=f"Bill No: {first['id']}", ln=0, align="L")
-    pdf.cell(90, 8, txt=f"Date: {date.today().strftime('%d-%b-%Y')}", ln=1, align="R")
-
-    pdf.set_font("Arial", "", 11)
-    pdf.cell(200, 8, txt=f"Customer: {customer_name}", ln=True, align="L")
-    pdf.ln(5)
-
-    # Table Header
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(10, 8, "#", border=1)
-    pdf.cell(70, 8, "Product", border=1)
-    pdf.cell(30, 8, "Qty", border=1)
-    pdf.cell(35, 8, "Unit Cost (₹)", border=1)
-    pdf.cell(45, 8, "Total (₹)", border=1, ln=True)
-
-    # Table Content
-    pdf.set_font("Arial", "", 10)
-    total_amount = 0
-
-    for i, o in enumerate(orders, start=1):
-        qty = float(o["quantity"])
-        total_cost = float(o["total_cost"] or 0)
-        unit_cost = (total_cost / qty) if qty else 0
-
-        total_amount += total_cost
-
-        pdf.cell(10, 8, str(i), border=1)
-        pdf.cell(70, 8, str(o["product_name"]), border=1)
-        pdf.cell(30, 8, str(qty), border=1, align="R")
-        pdf.cell(35, 8, f"{unit_cost:.2f}", border=1, align="R")
-        pdf.cell(45, 8, f"₹ {total_cost:.2f}", border=1, align="R", ln=True)
-
-    # Total Row
-    pdf.set_font("Arial", "B", 11)
-    pdf.cell(145, 8, "TOTAL AMOUNT", border=1, align="R")
-    pdf.cell(45, 8, f"₹ {total_amount:.2f}", border=1, ln=True, align="R")
-
-    # Footer
-    pdf.ln(10)
-    pdf.set_font("Arial", "I", 10)
-    pdf.multi_cell(
-        0, 6,
-        txt="Thank you for choosing Ananta Balia Printers & Publishers!\nWe appreciate your business.",
-        align="C"
-    )
-
-    filename = f"bill_{'_'.join(map(str, ids))}.pdf"
-    pdf.output(filename)
-
-    return send_file(filename, as_attachment=True)
 
 
 # ────────────────────────────────────────────────────────────────
@@ -1244,6 +1218,7 @@ def download_bill_pdf(order_ids):
 if __name__ == "__main__":
     init_db_sqlite()
     app.run(host="0.0.0.0", port=10000, debug=True)
+
 
 
 
