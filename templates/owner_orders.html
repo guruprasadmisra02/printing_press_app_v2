@@ -31,9 +31,13 @@
       {% for o in orders %}
       <tr>
         <td>{{ o.id }}</td>
-        <td>
-          {{ o.customer_display or 'N/A' }}<br>
-          <small class="text-muted">{{ o.customer_phone }}</small>
+         <td>
+          {% if o.customer_display != o.customer_phone %}
+          <strong>{{ o.customer_display }}</strong><br>
+          <small class="text-muted">📱 {{ o.customer_phone }}</small>
+          {% else %}
+          <strong>📱 {{ o.customer_phone }}</strong>
+          {% endif %}
         </td>
         <td>{{ o.product_name }}</td>
         <td>{{ o.quantity }}</td>
@@ -147,4 +151,5 @@
 </div>
 
 {% endblock %}
+
 
