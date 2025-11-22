@@ -31,7 +31,10 @@
       {% for o in orders %}
       <tr>
         <td>{{ o.id }}</td>
-        <td>{{ o.customer_display or o.customer_phone or 'N/A' }}</td>
+        <td>
+          {{ o.customer_display or 'N/A' }}<br>
+          <small class="text-muted">{{ o.customer_phone }}</small>
+        </td>
         <td>{{ o.product_name }}</td>
         <td>{{ o.quantity }}</td>
         <td>{{ o.date }}</td>
@@ -144,3 +147,4 @@
 </div>
 
 {% endblock %}
+
